@@ -334,6 +334,144 @@
       transform: translateY(1px);
     }
 
+    /* ========================================================
+       Hub (Главное меню выбора игр)
+    ======================================================== */
+    .hub-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 2px;
+    }
+
+    .hub-header {
+      text-align: center;
+      margin-bottom: 2px;
+    }
+
+    .hub-title {
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--text-main);
+      letter-spacing: 0.5px;
+    }
+
+    .hub-subtitle {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .game-card {
+      background: var(--duel-bg);
+      border: 2px solid var(--duel-border);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      cursor: pointer;
+    }
+
+    .game-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+      border-color: #5865f2;
+    }
+
+    .game-card:active {
+      transform: translateY(1px);
+    }
+
+    .game-card-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 22px;
+      font-weight: 900;
+      color: #ffffff;
+      flex-shrink: 0;
+      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+    }
+
+    .game-card-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .game-card-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .game-card-title {
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--text-main);
+    }
+
+    .game-card-badge {
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      background: rgba(237, 194, 46, 0.2);
+      color: #b78a08;
+    }
+
+    body.dark-theme .game-card-badge {
+      background: rgba(237, 194, 46, 0.15);
+      color: #fcd34d;
+    }
+
+    .game-card-desc {
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.35;
+      color: var(--text-muted);
+    }
+
+    .game-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .game-card-stat {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+    }
+
+    .game-card-stat strong {
+      color: #10b981;
+      font-weight: 900;
+    }
+
+    .hub-play-btn {
+      padding: 7px 14px !important;
+      font-size: 12px !important;
+      border-radius: 8px !important;
+      box-shadow: 0 3px 8px rgba(88, 101, 242, 0.3) !important;
+    }
+
     /* Game Section Wrapper */
     .game-section {
       width: 100%;
@@ -1285,21 +1423,66 @@
           <span class="profile-badge">DISCORD</span>
         </div>
         <div class="profile-sub">
-          <span>🏆 Рекорд в /профиль: <strong id="mainProfileRecord">0</strong></span>
+          <span>🏆 2048: <strong id="mainProfileRecord2048">0</strong> · 🐍 Змейка: <strong id="mainProfileRecordSnake">0</strong></span>
         </div>
       </div>
     </div>
 
-    <!-- Переключатель игр: 2048 / Змейка -->
+    <!-- Переключатель игр: Меню / 2048 / Змейка -->
     <div class="games-nav-bar">
-      <button class="game-nav-btn active" id="btnNav2048">🔢 2048</button>
+      <button class="game-nav-btn active" id="btnNavHub">🏠 ВЫБОР ИГРЫ</button>
+      <button class="game-nav-btn" id="btnNav2048">🔢 2048</button>
       <button class="game-nav-btn" id="btnNavSnake">🐍 ЗМЕЙКА</button>
+    </div>
+
+    <!-- ==========================================
+         СЕКЦИЯ 0: ИГРОВОЙ ХАБ (ГЛАВНОЕ МЕНЮ)
+    ========================================== -->
+    <div id="sectionHub" class="game-section">
+      <div class="hub-container">
+        <div class="hub-header">
+          <h2 class="hub-title">🎮 ВЫБЕРИ ИГРУ</h2>
+          <p class="hub-subtitle">Одиночные рекорды и дуэли с друзьями в войсе</p>
+        </div>
+
+        <!-- Карточка 2048 -->
+        <div class="game-card" id="cardSelect2048">
+          <div class="game-card-icon" style="background:#edc22e;">2048</div>
+          <div class="game-card-body">
+            <div class="game-card-title-row">
+              <span class="game-card-title">2048</span>
+              <span class="game-card-badge">ЛОГИКА · ДУЭЛЬ</span>
+            </div>
+            <p class="game-card-desc">Соединяй плитки чисел до 2048. Играй соло или соревнуйся с другом в реальном времени!</p>
+            <div class="game-card-footer">
+              <span class="game-card-stat">🏆 Рекорд: <strong id="hubRecord2048">0</strong></span>
+              <button class="btn btn-action primary hub-play-btn" id="btnPlay2048">ИГРАТЬ ▶️</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Карточка Змейка -->
+        <div class="game-card" id="cardSelectSnake">
+          <div class="game-card-icon" style="background:#10b981;">🐍</div>
+          <div class="game-card-body">
+            <div class="game-card-title-row">
+              <span class="game-card-title">ЗМЕЙКА</span>
+              <span class="game-card-badge" style="background:rgba(16,185,129,0.15); color:#10b981;">АРКАДА · 1 КАРТА</span>
+            </div>
+            <p class="game-card-desc">Плавное управление без инпутлага! Собирай яблоки соло или выбивай соперника на одной карте!</p>
+            <div class="game-card-footer">
+              <span class="game-card-stat">🏆 Рекорд: <strong id="hubRecordSnake">0</strong></span>
+              <button class="btn btn-action primary hub-play-btn" id="btnPlaySnake" style="background:#10b981;">ИГРАТЬ ▶️</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ==========================================
          СЕКЦИЯ 1: 2048
     ========================================== -->
-    <div id="section2048" class="game-section">
+    <div id="section2048" class="game-section hidden">
       <!-- Переключатель режима: Соло / Дуэль -->
       <div class="mode-bar">
         <button class="mode-btn active" id="btnModeSolo">🕹️ Соло</button>
@@ -1489,9 +1672,10 @@
 
     <!-- Кнопки управления под полем -->
     <div class="controls-row">
+      <button class="btn btn-action" id="btnBackToHubFrom2048">🏠 В МЕНЮ</button>
       <button class="btn btn-action" id="btnNewGame">🔄 ЗАНОВО</button>
       <button class="btn btn-action danger" id="btnStopGame">⏹️ СТОП</button>
-      <button class="btn btn-action" id="btnMenu">⚙️ МЕНЮ</button>
+      <button class="btn btn-action" id="btnMenu">⚙️ ИНФО</button>
     </div>
 
     <!-- Подсказка -->
@@ -1580,6 +1764,9 @@
               <button class="btn btn-action snake-btn-duel-menu" id="btnSnakeMenuDuel">
                 ⚔️ ДУЭЛЬ НА 1 КАРТЕ
               </button>
+              <button class="btn btn-action" id="btnSnakeMenuBackToHub" style="font-size:11px !important; padding:6px 10px !important;">
+                🏠 В ВЫБОР ИГРЫ
+              </button>
             </div>
 
             <div class="snake-speed-selector">
@@ -1638,7 +1825,10 @@
                 </button>
               </div>
               <button class="btn btn-action" id="btnSnakeLobbyBackMenu" style="margin-top:2px;">
-                📋 В меню игры
+                📋 В меню змейки
+              </button>
+              <button class="btn btn-action" id="btnSnakeLobbyBackToHub" style="margin-top:2px;">
+                🏠 В выбор игры
               </button>
             </div>
           </div>
@@ -1696,6 +1886,7 @@
 
       <!-- Кнопки управления под полем Змейки -->
       <div class="controls-row">
+        <button class="btn btn-action" id="btnBackToHubFromSnake">🏠 В МЕНЮ</button>
         <button class="btn btn-action" id="btnSnakeMenu">📋 МЕНЮ</button>
         <button class="btn btn-action" id="btnSnakeNewGame">🔄 ЗАНОВО</button>
         <button class="btn btn-action danger" id="btnSnakeStopGame">⏹️ СТОП</button>
@@ -1731,7 +1922,7 @@
   </div>
 
   <script type="module">
-    import './game.js?v=multigames_v8';
+    import './game.js?v=multigames_hub_v9';
   </script>
 </body>
 </html>

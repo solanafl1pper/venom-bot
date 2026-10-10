@@ -1,6 +1,6 @@
 'use strict';
 
-import { SnakeGame } from './snake.js';
+import { SnakeGame } from './snake.js?v=multigames_hub_v9';
 
 const CLIENT_ID = '1558214657137975357';
 const SIZE = 4;
@@ -96,7 +96,13 @@ const themeIconEl = document.getElementById('themeIcon');
 const mainProfileBar = document.getElementById('userProfileBar');
 const mainProfileAvatar = document.getElementById('mainProfileAvatar');
 const mainProfileName = document.getElementById('mainProfileName');
-const mainProfileRecord = document.getElementById('mainProfileRecord');
+const mainProfileRecord2048 = document.getElementById('mainProfileRecord2048');
+const mainProfileRecordSnake = document.getElementById('mainProfileRecordSnake');
+const hubRecord2048 = document.getElementById('hubRecord2048');
+const hubRecordSnake = document.getElementById('hubRecordSnake');
+
+let bestScore2048 = 0;
+let bestScoreSnake = 0;
 
 const btnModeSolo = document.getElementById('btnModeSolo');
 const btnModeDuel = document.getElementById('btnModeDuel');
@@ -185,7 +191,10 @@ function updateProfileUI() {
   // Обновляем аватары и ники во всех блоках интерфейса
   if (mainProfileName) mainProfileName.textContent = currentUser.username;
   if (mainProfileAvatar && currentUser.avatar) mainProfileAvatar.src = currentUser.avatar;
-  if (mainProfileRecord) mainProfileRecord.textContent = bestScore;
+  if (mainProfileRecord2048) mainProfileRecord2048.textContent = bestScore;
+  if (mainProfileRecordSnake) mainProfileRecordSnake.textContent = bestScoreSnake;
+  if (hubRecord2048) hubRecord2048.textContent = bestScore;
+  if (hubRecordSnake) hubRecordSnake.textContent = bestScoreSnake;
 
   if (myDuelName) myDuelName.textContent = currentUser.username;
   if (myDuelAvatar && currentUser.avatar) myDuelAvatar.src = currentUser.avatar;
@@ -395,52 +404,128 @@ if (btnConfirmSendInvite) {
 /* ========================================================
    4.8 Mini-Games Hub Switcher (2048 & Змейка)
 ======================================================== */
-let activeGame = '2048';
+let activeGame = 'hub';
 let snakeGame = null;
 
+const btnNavHub = document.getElementById('btnNavHub');
 const btnNav2048 = document.getElementById('btnNav2048');
 const btnNavSnake = document.getElementById('btnNavSnake');
+const sectionHub = document.getElementById('sectionHub');
 const section2048 = document.getElementById('section2048');
 const sectionSnake = document.getElementById('sectionSnake');
 const logoBoxEl = document.querySelector('.logo-box');
 
+const cardSelect2048 = document.getElementById('cardSelect2048');
+const cardSelectSnake = document.getElementById('cardSelectSnake');
+const btnPlay2048 = document.getElementById('btnPlay2048');
+const btnPlaySnake = document.getElementById('btnPlaySnake');
+
+const btnBackToHubFrom2048 = document.getElementById('btnBackToHubFrom2048');
+const btnBackToHubFromSnake = document.getElementById('btnBackToHubFromSnake');
+
 function setupGameSwitcher() {
-  if (btnNav2048) {
-    btnNav2048.onclick = () => switchActiveGame('2048');
+  if (btnNavHub) btnNavHub.onclick = () => switchActiveGame('hub');
+  if (btnNav2048) btnNav2048.onclick = () => switchActiveGame('2048');
+  if (btnNavSnake) btnNavSnake.onclick = () => switchActiveGame('snake');
+
+  if (cardSelect2048) cardSelect2048.onclick = () => switchActiveGame('2048');
+  if (btnPlay2048) {
+    btnPlay2048.onclick = (e) => {
+      e.stopPropagation();
+      switchActiveGame('2048');
+    };
   }
-  if (btnNavSnake) {
-    btnNavSnake.onclick = () => switchActiveGame('snake');
+
+  if (cardSelectSnake) cardSelectSnake.onclick = () => switchActiveGame('snake');
+  if (btnPlaySnake) {
+    btnPlaySnake.onclick = (e) => {
+      e.stopPropagation();
+      switchActiveGame('snake');
+    };
   }
+
+  if (btnBackToHubFrom2048) btnBackToHubFrom2048.onclick = () => switchActiveGame('hub');
+  if (btnBackToHubFromSnake) btnBackToHubFromSnake.onclick = () => switchActiveGame('hub');
 }
 
 function switchActiveGame(gameName) {
   activeGame = gameName;
-  if (gameName === '2048') {
-    if (btnNav2048) btnNav2048.classList.add('active');
+
+  if (gameName === 'hub') {
+    if (btnNavHub) btnNavHub.classList.add('active');
+    if (btnNav2048) btnNav2048.classList.remove('active');
     if (btnNavSnake) btnNavSnake.classList.remove('active');
-    if (section2048) section2048.classList.remove('hidden');
+
+    if (sectionHub) sectionHub.classList.remove('hidden');
+    if (section2048) section2048.classList.add('hidden');
     if (sectionSnake) sectionSnake.classList.add('hidden');
+
+    if (logoBoxEl) logoBoxEl.textContent = 'ИГРЫ';
+    if (currentScoreEl) currentScoreEl.textContent = '—';
+    if (bestScoreEl) bestScoreEl.textContent = '—';
+
+    // ОСТАНАВЛИВАЕМ ВСЁ В 2048 (БОТ, ДУЭЛЬ, ТАЙМЕРЫ)
+    stopBotDuel();
+    stopDuelPolling();
+    isMoving = false;
+
+    // ОСТАНАВЛИВАЕМ ВСЁ В ЗМЕЙКЕ
+    if (snakeGame) {
+      snakeGame.stopLoop();
+      snakeGame.stopDuelPolling();
+    }
+
+    updateProfileUI();
+  } else if (gameName === '2048') {
+    if (btnNav2048) btnNav2048.classList.add('active');
+    if (btnNavHub) btnNavHub.classList.remove('active');
+    if (btnNavSnake) btnNavSnake.classList.remove('active');
+
+    if (section2048) section2048.classList.remove('hidden');
+    if (sectionHub) sectionHub.classList.add('hidden');
+    if (sectionSnake) sectionSnake.classList.add('hidden');
+
     if (logoBoxEl) logoBoxEl.textContent = '2048';
     if (currentScoreEl) currentScoreEl.textContent = score;
     if (bestScoreEl) bestScoreEl.textContent = bestScore;
-    if (mainProfileRecord) mainProfileRecord.textContent = bestScore;
-  } else {
+
+    // ОСТАНАВЛИВАЕМ ЗМЕЙКУ
+    if (snakeGame) {
+      snakeGame.stopLoop();
+      snakeGame.stopDuelPolling();
+    }
+
+    if (!board.some((row) => row.some((tile) => tile !== null))) {
+      initGame();
+    }
+  } else if (gameName === 'snake') {
     if (btnNavSnake) btnNavSnake.classList.add('active');
+    if (btnNavHub) btnNavHub.classList.remove('active');
     if (btnNav2048) btnNav2048.classList.remove('active');
+
     if (sectionSnake) sectionSnake.classList.remove('hidden');
+    if (sectionHub) sectionHub.classList.add('hidden');
     if (section2048) section2048.classList.add('hidden');
+
     if (logoBoxEl) logoBoxEl.textContent = 'ЗМЕЙКА';
+
+    // ОСТАНАВЛИВАЕМ ВСЁ В 2048 (БОТ, ДУЭЛЬ, ТАЙМЕРЫ)
+    stopBotDuel();
+    stopDuelPolling();
+    isMoving = false;
 
     if (!snakeGame) {
       snakeGame = new SnakeGame({
         getCurrentUser: () => currentUser,
         getRoomId: () => roomId,
         showToast,
+        onBackToHub: () => switchActiveGame('hub'),
         onScoreUpdate: (s, b) => {
+          bestScoreSnake = b;
+          updateProfileUI();
           if (activeGame === 'snake') {
             if (currentScoreEl) currentScoreEl.textContent = s;
             if (bestScoreEl) bestScoreEl.textContent = b;
-            if (mainProfileRecord) mainProfileRecord.textContent = b;
           }
         },
         openChannelSelect: (g) => openChannelSelect(g),
@@ -449,7 +534,6 @@ function switchActiveGame(gameName) {
     } else {
       if (currentScoreEl) currentScoreEl.textContent = snakeGame.score;
       if (bestScoreEl) bestScoreEl.textContent = snakeGame.bestScore;
-      if (mainProfileRecord) mainProfileRecord.textContent = snakeGame.bestScore;
       snakeGame.setupCanvas();
       if (snakeGame.state === 'menu') {
         snakeGame.showMenu();
@@ -775,6 +859,9 @@ async function fetchProfile() {
       if (identData.bestScore !== undefined && identData.bestScore > 0) {
         setBestScore(identData.bestScore);
       }
+      if (identData.bestSnake !== undefined && identData.bestSnake > 0) {
+        bestScoreSnake = identData.bestSnake;
+      }
       updateProfileUI();
       console.log(`[профиль] Discord профиль: ${currentUser.username} (${currentUser.id})`);
     }
@@ -835,12 +922,18 @@ async function initDiscord() {
 
 async function fetchUserBestScore() {
   try {
-    const res = await fetch(`/api/score?userId=${currentUser.id}`);
-    if (res.ok) {
-      const data = await res.json();
+    const res2048 = await fetch(`/api/score?userId=${currentUser.id}&game=2048`);
+    if (res2048.ok) {
+      const data = await res2048.json();
       if (data.best) setBestScore(data.best);
     }
+    const resSnake = await fetch(`/api/score?userId=${currentUser.id}&game=snake`);
+    if (resSnake.ok) {
+      const data = await resSnake.json();
+      if (data.best) bestScoreSnake = data.best;
+    }
   } catch {}
+  updateProfileUI();
 }
 
 // СОХРАНЕНИЕ ТОЛЬКО В КОНЦЕ ИГРЫ
@@ -857,6 +950,7 @@ async function saveFinalScoreToBot(finalScore) {
         username: currentUser.username,
         score: finalScore,
         channelId: roomId,
+        game: '2048',
       }),
     });
 
@@ -867,7 +961,6 @@ async function saveFinalScoreToBot(finalScore) {
       }
       if (data.best) {
         setBestScore(data.best);
-        if (mainProfileRecord) mainProfileRecord.textContent = data.best;
       }
       showToast(`🏆 Рекорд ${finalScore} сохранён в профиль Discord!`);
       console.log(`[рекорд] Финальный счёт ${finalScore} успешно записан в профиль Discord!`);
@@ -877,8 +970,9 @@ async function saveFinalScoreToBot(finalScore) {
 
 function setBestScore(val) {
   bestScore = val;
-  if (bestScoreEl) bestScoreEl.textContent = val;
-  if (mainProfileRecord) mainProfileRecord.textContent = val;
+  bestScore2048 = val;
+  if (activeGame === '2048' && bestScoreEl) bestScoreEl.textContent = val;
+  updateProfileUI();
 }
 
 /* ========================================================
@@ -954,7 +1048,7 @@ function updateTilePosition(tile) {
 }
 
 function move(dir) {
-  if (isGameOver || isMoving || (gameMode === 'duel' && duelState !== 'playing')) return;
+  if (activeGame !== '2048' || isGameOver || isMoving || (gameMode === 'duel' && duelState !== 'playing')) return;
 
   const vectors = {
     up: [-1, 0],
@@ -1137,6 +1231,8 @@ function handleGameOver() {
    9. Controls & Input Listeners
 ======================================================== */
 window.addEventListener('keydown', (e) => {
+  if (activeGame !== '2048') return;
+
   switch (e.key) {
     case 'ArrowLeft':
     case 'a':
@@ -1180,6 +1276,7 @@ if (boardEl) {
   boardEl.addEventListener(
     'touchstart',
     (e) => {
+      if (activeGame !== '2048') return;
       if (e.touches.length === 1) {
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
@@ -1191,6 +1288,7 @@ if (boardEl) {
   boardEl.addEventListener(
     'touchend',
     (e) => {
+      if (activeGame !== '2048') return;
       if (!touchStartX || !touchStartY) return;
       const touchEndX = e.changedTouches[0].clientX;
       const touchEndY = e.changedTouches[0].clientY;
@@ -1246,3 +1344,4 @@ setupGameSwitcher();
 updateProfileUI();
 initDiscord();
 initGame();
+switchActiveGame('hub');

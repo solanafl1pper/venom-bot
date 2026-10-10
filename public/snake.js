@@ -16,6 +16,7 @@ export class SnakeGame {
     this.showToast = options.showToast || ((msg) => console.log(msg));
     this.onScoreUpdate = options.onScoreUpdate || (() => {});
     this.openChannelSelect = options.openChannelSelect || (() => {});
+    this.onBackToHub = options.onBackToHub || (() => {});
 
     // State: 'menu' | 'playing' | 'gameover' | 'duel_lobby' | 'duel_playing' | 'duel_results'
     this.state = 'menu';
@@ -93,6 +94,9 @@ export class SnakeGame {
     this.btnSnakeMenu = document.getElementById('btnSnakeMenu');
     this.btnGameOverMenu = document.getElementById('btnSnakeGameOverMenu');
     this.btnLobbyBackMenu = document.getElementById('btnSnakeLobbyBackMenu');
+    this.btnSnakeMenuBackToHub = document.getElementById('btnSnakeMenuBackToHub');
+    this.btnSnakeLobbyBackToHub = document.getElementById('btnSnakeLobbyBackToHub');
+    this.btnBackToHubFromSnake = document.getElementById('btnBackToHubFromSnake');
 
     // Duel HUD
     this.myAvatarEl = document.getElementById('snakeMyAvatar');
@@ -322,6 +326,30 @@ export class SnakeGame {
     if (this.btnBackToLobby) {
       this.btnBackToLobby.onclick = () => {
         this.openLobby();
+      };
+    }
+
+    if (this.btnSnakeMenuBackToHub) {
+      this.btnSnakeMenuBackToHub.onclick = () => {
+        this.stopLoop();
+        this.stopDuelPolling();
+        this.onBackToHub();
+      };
+    }
+
+    if (this.btnSnakeLobbyBackToHub) {
+      this.btnSnakeLobbyBackToHub.onclick = () => {
+        this.stopLoop();
+        this.stopDuelPolling();
+        this.onBackToHub();
+      };
+    }
+
+    if (this.btnBackToHubFromSnake) {
+      this.btnBackToHubFromSnake.onclick = () => {
+        this.stopLoop();
+        this.stopDuelPolling();
+        this.onBackToHub();
       };
     }
   }
