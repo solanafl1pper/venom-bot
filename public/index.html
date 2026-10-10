@@ -3,10 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>2048 · Activity</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg-color: #FAF8EF;
@@ -69,7 +72,7 @@
     body {
       background-color: var(--bg-color);
       color: var(--text-main);
-      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       min-height: 100vh;
       display: flex;
       justify-content: center;
@@ -116,6 +119,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: background 0.2s ease, box-shadow 0.2s ease;
     }
 
     .theme-toggle-btn {
@@ -156,7 +160,7 @@
     .score-title {
       color: var(--card-label);
       font-size: 10px;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 1px;
       margin-bottom: 2px;
     }
@@ -183,9 +187,9 @@
       color: var(--text-muted);
       border-radius: 8px;
       padding: 8px 0;
-      font-family: inherit;
+      font-family: 'Montserrat', sans-serif;
       font-size: 13px;
-      font-weight: 800;
+      font-weight: 900;
       cursor: pointer;
       transition: all 0.15s ease;
     }
@@ -260,14 +264,15 @@
 
     .duel-name {
       font-size: 12px;
-      font-weight: 800;
+      font-weight: 900;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      color: var(--text-main);
     }
 
     .duel-score {
-      font-size: 16px;
+      font-size: 17px;
       font-weight: 900;
       color: #10b981;
     }
@@ -288,16 +293,16 @@
       font-size: 10px;
       font-weight: 900;
       border-radius: 6px;
-      padding: 2px 6px;
+      padding: 2px 7px;
       letter-spacing: 1px;
     }
 
     .duel-status-text {
-      font-size: 10px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 800;
       color: var(--text-muted);
-      margin-top: 2px;
-      text-align: center;
+      margin-top: 3px;
+      white-space: nowrap;
     }
 
     .duel-actions-row {
@@ -312,10 +317,10 @@
       border: 2px solid var(--btn-border);
       color: var(--text-main);
       border-radius: 8px;
-      padding: 7px 10px;
-      font-family: inherit;
+      padding: 8px 10px;
+      font-family: 'Montserrat', sans-serif;
       font-size: 12px;
-      font-weight: 800;
+      font-weight: 900;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -374,7 +379,9 @@
       pointer-events: none;
     }
 
-    /* ПЛИТКА: размер и плавное перемещение */
+    /* ========================================================
+       ПЛИТКИ 2048: ЖИРНЫЙ МОНТСЕРРАТ, ИДЕАЛЬНЫЙ ЦЕНТР
+    ======================================================== */
     .tile {
       position: absolute;
       top: 0;
@@ -383,23 +390,33 @@
       height: calc((100% - (3 * var(--tile-gap))) / 4);
       border-radius: 8px;
       z-index: 10;
-      transition: transform 105ms ease-in-out;
+      transition: transform 110ms ease-in-out;
       will-change: transform;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      text-align: center !important;
+      font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      font-weight: 900 !important;
+      line-height: 1 !important;
+      box-sizing: border-box;
+      overflow: hidden;
     }
 
-    /* ВНУТРЕННИЙ БЛОК: цвета, шрифты, pop-анимации */
     .tile-inner {
       width: 100%;
       height: 100%;
       border-radius: 8px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-family: 'Nunito', sans-serif;
-      font-weight: 900;
-      font-size: clamp(24px, 8vw, 38px);
-      line-height: 1;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      text-align: center !important;
+      font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      font-weight: 900 !important;
+      line-height: 1 !important;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
+      box-sizing: border-box;
+      letter-spacing: -0.5px;
     }
 
     .tile.tile-new .tile-inner {
@@ -410,33 +427,61 @@
       animation: tile-pop 160ms ease-in-out;
     }
 
-    /* Палитра плиток (Светлая тема) */
-    .tile-2 .tile-inner, .tile-2 { background: #eee4da; color: #776e65; }
-    .tile-4 .tile-inner, .tile-4 { background: #ede0c8; color: #776e65; }
-    .tile-8 .tile-inner, .tile-8 { background: #f2b179; color: #ffffff; }
-    .tile-16 .tile-inner, .tile-16 { background: #f59563; color: #ffffff; font-size: clamp(20px, 7vw, 34px); }
-    .tile-32 .tile-inner, .tile-32 { background: #f67c5f; color: #ffffff; font-size: clamp(20px, 7vw, 34px); }
-    .tile-64 .tile-inner, .tile-64 { background: #f65e3b; color: #ffffff; font-size: clamp(20px, 7vw, 34px); }
-    .tile-128 .tile-inner, .tile-128 { background: #edcf72; color: #ffffff; font-size: clamp(18px, 6vw, 30px); box-shadow: 0 0 10px rgba(237, 207, 114, 0.4); }
-    .tile-256 .tile-inner, .tile-256 { background: #edcc61; color: #ffffff; font-size: clamp(18px, 6vw, 30px); box-shadow: 0 0 12px rgba(237, 204, 97, 0.5); }
-    .tile-512 .tile-inner, .tile-512 { background: #edc850; color: #ffffff; font-size: clamp(18px, 6vw, 30px); box-shadow: 0 0 14px rgba(237, 200, 80, 0.6); }
-    .tile-1024 .tile-inner, .tile-1024 { background: #edc53f; color: #ffffff; font-size: clamp(15px, 5vw, 24px); box-shadow: 0 0 16px rgba(237, 197, 63, 0.7); }
-    .tile-2048 .tile-inner, .tile-2048 { background: #edc22e; color: #ffffff; font-size: clamp(15px, 5vw, 24px); box-shadow: 0 0 20px rgba(237, 194, 46, 0.85); }
-    .tile-super .tile-inner, .tile-super { background: #10b981; color: #ffffff; font-size: clamp(14px, 4.5vw, 22px); }
+    /* Размеры шрифта под разрядность числа */
+    .tile-2, .tile-2 .tile-inner,
+    .tile-4, .tile-4 .tile-inner,
+    .tile-8, .tile-8 .tile-inner {
+      font-size: clamp(28px, 9vw, 42px) !important;
+    }
 
-    /* Палитра плиток (Тёмная тема) */
-    body.dark-theme .tile-2 .tile-inner, body.dark-theme .tile-2 { background: #3b3d44; color: #f2f3f5; }
-    body.dark-theme .tile-4 .tile-inner, body.dark-theme .tile-4 { background: #464850; color: #f2f3f5; }
-    body.dark-theme .tile-8 .tile-inner, body.dark-theme .tile-8 { background: #ea7a32; color: #ffffff; }
-    body.dark-theme .tile-16 .tile-inner, body.dark-theme .tile-16 { background: #e85934; color: #ffffff; font-size: clamp(20px, 7vw, 34px); }
-    body.dark-theme .tile-32 .tile-inner, body.dark-theme .tile-32 { background: #e04434; color: #ffffff; font-size: clamp(20px, 7vw, 34px); }
-    body.dark-theme .tile-64 .tile-inner, body.dark-theme .tile-64 { background: #d12e2e; color: #ffffff; font-size: clamp(20px, 7vw, 34px); }
-    body.dark-theme .tile-128 .tile-inner, body.dark-theme .tile-128 { background: #e5a420; color: #ffffff; font-size: clamp(18px, 6vw, 30px); box-shadow: 0 0 10px rgba(229, 164, 32, 0.5); }
-    body.dark-theme .tile-256 .tile-inner, body.dark-theme .tile-256 { background: #d89617; color: #ffffff; font-size: clamp(18px, 6vw, 30px); box-shadow: 0 0 12px rgba(216, 150, 23, 0.6); }
-    body.dark-theme .tile-512 .tile-inner, body.dark-theme .tile-512 { background: #cc870f; color: #ffffff; font-size: clamp(18px, 6vw, 30px); box-shadow: 0 0 14px rgba(204, 135, 15, 0.7); }
-    body.dark-theme .tile-1024 .tile-inner, body.dark-theme .tile-1024 { background: #bf7808; color: #ffffff; font-size: clamp(15px, 5vw, 24px); box-shadow: 0 0 16px rgba(191, 120, 8, 0.8); }
-    body.dark-theme .tile-2048 .tile-inner, body.dark-theme .tile-2048 { background: #5865f2; color: #ffffff; font-size: clamp(15px, 5vw, 24px); box-shadow: 0 0 20px rgba(88, 101, 242, 0.9); }
-    body.dark-theme .tile-super .tile-inner, body.dark-theme .tile-super { background: #23a55a; color: #ffffff; font-size: clamp(14px, 4.5vw, 22px); }
+    .tile-16, .tile-16 .tile-inner,
+    .tile-32, .tile-32 .tile-inner,
+    .tile-64, .tile-64 .tile-inner {
+      font-size: clamp(24px, 7.5vw, 36px) !important;
+    }
+
+    .tile-128, .tile-128 .tile-inner,
+    .tile-256, .tile-256 .tile-inner,
+    .tile-512, .tile-512 .tile-inner {
+      font-size: clamp(19px, 6vw, 30px) !important;
+    }
+
+    .tile-1024, .tile-1024 .tile-inner,
+    .tile-2048, .tile-2048 .tile-inner {
+      font-size: clamp(15px, 4.8vw, 24px) !important;
+    }
+
+    .tile-super, .tile-super .tile-inner {
+      font-size: clamp(13px, 4vw, 20px) !important;
+    }
+
+    /* Цвета плиток (Светлая тема) */
+    .tile-2, .tile-2 .tile-inner { background: #eee4da; color: #776e65; }
+    .tile-4, .tile-4 .tile-inner { background: #ede0c8; color: #776e65; }
+    .tile-8, .tile-8 .tile-inner { background: #f2b179; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.18); }
+    .tile-16, .tile-16 .tile-inner { background: #f59563; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.18); }
+    .tile-32, .tile-32 .tile-inner { background: #f67c5f; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.18); }
+    .tile-64, .tile-64 .tile-inner { background: #f65e3b; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.18); }
+    .tile-128, .tile-128 .tile-inner { background: #edcf72; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.22); box-shadow: 0 0 12px rgba(237, 207, 114, 0.45); }
+    .tile-256, .tile-256 .tile-inner { background: #edcc61; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.22); box-shadow: 0 0 14px rgba(237, 204, 97, 0.5); }
+    .tile-512, .tile-512 .tile-inner { background: #edc850; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.22); box-shadow: 0 0 16px rgba(237, 200, 80, 0.6); }
+    .tile-1024, .tile-1024 .tile-inner { background: #edc53f; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.25); box-shadow: 0 0 18px rgba(237, 197, 63, 0.7); }
+    .tile-2048, .tile-2048 .tile-inner { background: #edc22e; color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,0.3); box-shadow: 0 0 24px rgba(237, 194, 46, 0.85); }
+    .tile-super, .tile-super .tile-inner { background: #10b981; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+
+    /* Цвета плиток (Тёмная тема) */
+    body.dark-theme .tile-2, body.dark-theme .tile-2 .tile-inner { background: #3b3d44; color: #f2f3f5; }
+    body.dark-theme .tile-4, body.dark-theme .tile-4 .tile-inner { background: #464850; color: #f2f3f5; }
+    body.dark-theme .tile-8, body.dark-theme .tile-8 .tile-inner { background: #ea7a32; color: #ffffff; }
+    body.dark-theme .tile-16, body.dark-theme .tile-16 .tile-inner { background: #e85934; color: #ffffff; }
+    body.dark-theme .tile-32, body.dark-theme .tile-32 .tile-inner { background: #e04434; color: #ffffff; }
+    body.dark-theme .tile-64, body.dark-theme .tile-64 .tile-inner { background: #d12e2e; color: #ffffff; }
+    body.dark-theme .tile-128, body.dark-theme .tile-128 .tile-inner { background: #e5a420; color: #ffffff; box-shadow: 0 0 12px rgba(229, 164, 32, 0.5); }
+    body.dark-theme .tile-256, body.dark-theme .tile-256 .tile-inner { background: #d89617; color: #ffffff; box-shadow: 0 0 14px rgba(216, 150, 23, 0.6); }
+    body.dark-theme .tile-512, body.dark-theme .tile-512 .tile-inner { background: #cc870f; color: #ffffff; box-shadow: 0 0 16px rgba(204, 135, 15, 0.7); }
+    body.dark-theme .tile-1024, body.dark-theme .tile-1024 .tile-inner { background: #bf7808; color: #ffffff; box-shadow: 0 0 18px rgba(191, 120, 8, 0.8); }
+    body.dark-theme .tile-2048, body.dark-theme .tile-2048 .tile-inner { background: #5865f2; color: #ffffff; box-shadow: 0 0 24px rgba(88, 101, 242, 0.9); }
+    body.dark-theme .tile-super, body.dark-theme .tile-super .tile-inner { background: #23a55a; color: #ffffff; }
 
     @keyframes tile-appear {
       0% { opacity: 0; transform: scale(0); }
@@ -454,18 +499,21 @@
       display: flex;
       gap: 12px;
       margin-top: 14px;
+      width: 100%;
     }
 
     .btn {
-      font-family: inherit;
+      flex: 1;
+      font-family: 'Montserrat', sans-serif;
       cursor: pointer;
       border-radius: 8px;
-      font-weight: 800;
+      font-weight: 900;
       font-size: 13px;
       letter-spacing: 0.8px;
-      padding: 10px 22px;
+      padding: 10px 16px;
       transition: all 0.15s ease;
       outline: none;
+      text-align: center;
     }
 
     .btn-action {
@@ -484,13 +532,40 @@
       box-shadow: none;
     }
 
-    /* Footer */
     .footer {
       margin-top: 12px;
       font-size: 12px;
       font-weight: 700;
       color: var(--text-muted);
       text-align: center;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-25px);
+      background: rgba(20, 20, 24, 0.94);
+      color: #ffffff;
+      padding: 10px 20px;
+      border-radius: 24px;
+      font-size: 13px;
+      font-weight: 800;
+      z-index: 999;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
     }
 
     /* Overlays */
@@ -590,6 +665,8 @@
   </style>
 </head>
 <body>
+  <div class="toast" id="toast"></div>
+
   <div class="game-wrapper">
     <!-- Шапка -->
     <header class="header">
@@ -690,7 +767,7 @@
               <div class="user-status" id="userStatus">Discord Activity</div>
             </div>
           </div>
-          <p class="menu-hint">Очки сохраняются в боте и видны в <b>/профиль</b>. В режиме <b>Дуэль</b> ты можешь пригласить пацанов на баттл или сразиться с ботом!</p>
+          <p class="menu-hint">Очки сохраняются в боте и видны в <b>/профиль</b>. В режиме <b>Дуэль</b> ты можешь позвать друзей или сразиться с ботом!</p>
           <button class="btn btn-action" id="btnCloseMenu">ПРОДОЛЖИТЬ</button>
         </div>
       </div>
@@ -708,6 +785,9 @@
     </footer>
   </div>
 
-  <script type="module" src="./game.js"></script>
+  <!-- Встроенный логический модуль без внешних зависимостей -->
+  <script type="module">
+    import './game.js?v=2048_fix_v4';
+  </script>
 </body>
 </html>
