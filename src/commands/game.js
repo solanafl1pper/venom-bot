@@ -12,14 +12,23 @@ const g = require('../games/game2048');
 
 const TTL_MS = 2 * 60 * 60 * 1000;
 
-function buildLaunchContainer(user, best, inviteUrl, channelName) {
-  const container = new ContainerBuilder().setAccentColor(0xedc22e);
+function buildLaunchContainer(user, best, inviteUrl, channelName, game = '2048') {
+  const isSnake = game === 'snake' || game === 'змейка';
+  const accentColor = isSnake ? 0x10b981 : 0xedc22e;
+  const title = isSnake ? '### 🐍 Змейка · Discord Activity' : '### 🎮 2048 · Discord Activity';
+  const desc = isSnake
+    ? 'Запускай Змейку прямо в Discord в один клик! Собирай яблоки, бей рекорды и сражайся в дуэли на одной карте.'
+    : 'Запускай игру прямо в Discord в один клик! Собирай плитки, бей рекорды и соревнуйся с друзьями.';
+  const recordLabel = isSnake ? '🏆 Твой рекорд в Змейке:' : '🏆 Твой рекорд:';
+  const btnLabel = isSnake ? '🚀 Запустить Змейку' : '🚀 Запустить 2048';
+
+  const container = new ContainerBuilder().setAccentColor(accentColor);
 
   const textLines = [
-    '### 🎮 2048 · Discord Activity',
-    'Запускай игру прямо в Discord в один клик! Собирай плитки, бей рекорды и соревнуйся с друзьями.',
+    title,
+    desc,
     '',
-    `🏆 Твой рекорд: **${best || 0}**${channelName ? ` · Канал: **${channelName}**` : ''}`,
+    `${recordLabel} **${best || 0}**${channelName ? ` · Канал: **${channelName}**` : ''}`,
   ];
 
   if (inviteUrl) {
@@ -32,7 +41,7 @@ function buildLaunchContainer(user, best, inviteUrl, channelName) {
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setStyle(ButtonStyle.Link)
-        .setLabel('🚀 Запустить 2048')
+        .setLabel(btnLabel)
         .setURL(inviteUrl),
     );
     container.addActionRowComponents(row);
@@ -44,7 +53,9 @@ function buildLaunchContainer(user, best, inviteUrl, channelName) {
 function registerGame(client, storage) {
   client.handleGame = async (interaction) => {
     const userId = interaction.user.id;
-    const best = storage ? storage.bestScore('2048', userId) : 0;
+    const isSnake = interaction.commandName === 'змейка';
+    const gameKey = isSnake ? 'snake' : '2048';
+    const best = storage ? storage.bestScore(gameKey, userId) : 0;
     const guild = interaction.guild;
 
     // Запоминаем, кто запустил команду для автоматической привязки рекорда в профиль
@@ -58,6 +69,7 @@ function registerGame(client, storage) {
         username: interaction.user.username,
         avatar: avatarUrl,
         guildId: guild?.id || null,
+        game: gameKey,
         at: Date.now(),
       };
     }
@@ -109,15 +121,17 @@ function registerGame(client, storage) {
             ? interaction.user.displayAvatarURL({ extension: 'png', size: 128 })
             : null,
           inviteUrl,
+          game: gameKey,
           at: Date.now(),
         };
         if (storage.data.meta.lastLaunch) {
           storage.data.meta.lastLaunch.inviteUrl = inviteUrl;
+          storage.data.meta.lastLaunch.game = gameKey;
         }
       }
     }
 
-    const container = buildLaunchContainer(interaction.user, best, inviteUrl, channelName);
+    const container = buildLaunchContainer(interaction.user, best, inviteUrl, channelName, gameKey);
 
     await interaction.editReply({
       components: [container],
@@ -131,9 +145,9 @@ function registerGame(client, storage) {
 module.exports = {
   registerGame,
   buildLaunchContainer,
-  buildGameContainer: (game, best) => buildLaunchContainer(null, best, null, null),
-  buildFinishedGameContainer: (game, best) => buildLaunchContainer(null, best, null, null),
-  buildEmbed: (game, best) => buildLaunchContainer(null, best, null, null),
-  buildFinishedEmbed: (game, best) => buildLaunchContainer(null, best, null, null),
+  buildGameContainer: (game, best) => buildLaunchContainer(null, best, null, null, '2048'),
+  buildFinishedGameContainer: (game, best) => buildLaunchContainer(null, best, null, null, '2048'),
+  buildEmbed: (game, best) => buildLaunchContainer(null, best, null, null, '2048'),
+  buildFinishedEmbed: (game, best) => buildLaunchContainer(null, best, null, null, '2048'),
   TTL_MS,
 };

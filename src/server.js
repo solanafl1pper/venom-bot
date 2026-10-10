@@ -3,6 +3,14 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const {
+  ContainerBuilder,
+  TextDisplayBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  MessageFlags,
+} = require('discord.js');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -128,28 +136,87 @@ function createServer(storage, client) {
       return;
     }
 
-    // 1.7 API: Get sendable text channels for inviting
+    // 1.7 API: Get sendable text channels for inviting (filtered to user's active voice guild)
     if (pathname === '/api/channels' && req.method === 'GET') {
       const channels = [];
-      if (client?.guilds?.cache) {
-        for (const guild of client.guilds.cache.values()) {
-          for (const ch of guild.channels.cache.values()) {
-            if (
-              ch.isTextBased() &&
-              !ch.isThread() &&
-              ch.permissionsFor(client.user.id)?.has('SendMessages')
-            ) {
-              channels.push({
-                id: ch.id,
-                name: ch.name,
-                guildName: guild.name,
-              });
-            }
+      const queryChannelId = url.searchParams.get('channelId');
+      const queryUserId = url.searchParams.get('userId');
+      const targetUserId = queryUserId || storage?.data?.meta?.lastLaunch?.userId || '566547457568276494';
+
+      let activeGuild = null;
+
+      // 1. If voice channel ID is provided, look up its guild directly
+      if (queryChannelId && queryChannelId !== 'default_room' && client?.channels?.cache) {
+        const ch = client.channels.cache.get(queryChannelId);
+        if (ch?.guild) {
+          activeGuild = ch.guild;
+        }
+      }
+
+      // 2. Check if voice session tracker has the user's active session
+      if (!activeGuild && targetUserId && client?.voiceTracker?.activeSessions) {
+        const session = client.voiceTracker.activeSessions.get(targetUserId);
+        if (session) {
+          if (session.guildId && client.guilds?.cache) {
+            activeGuild = client.guilds.cache.get(session.guildId);
+          } else if (session.channelId && client.channels?.cache) {
+            activeGuild = client.channels.cache.get(session.channelId)?.guild;
           }
         }
       }
+
+      // 3. Search guilds for where targetUserId is currently in a voice channel
+      if (!activeGuild && targetUserId && client?.guilds?.cache) {
+        for (const guild of client.guilds.cache.values()) {
+          const vs = guild.voiceStates?.cache?.get(targetUserId);
+          if (vs?.channelId) {
+            activeGuild = guild;
+            break;
+          }
+          const inVoice = guild.channels?.cache?.some(
+            (c) => c.isVoiceBased?.() && c.members?.has?.(targetUserId)
+          );
+          if (inVoice) {
+            activeGuild = guild;
+            break;
+          }
+        }
+      }
+
+      // 4. Fallback: check storage metadata
+      if (!activeGuild && storage?.data?.meta) {
+        if (queryChannelId && storage.data.meta.channelLaunches?.[queryChannelId]) {
+          const ch = client?.channels?.cache?.get(queryChannelId);
+          if (ch?.guild) activeGuild = ch.guild;
+        }
+        if (!activeGuild && storage.data.meta.lastLaunch?.guildId && client?.guilds?.cache) {
+          activeGuild = client.guilds.cache.get(storage.data.meta.lastLaunch.guildId);
+        }
+      }
+
+      // If activeGuild is resolved, ONLY return channels from that active guild!
+      const targetGuilds = activeGuild
+        ? [activeGuild]
+        : (client?.guilds?.cache ? Array.from(client.guilds.cache.values()) : []);
+
+      for (const guild of targetGuilds) {
+        for (const ch of guild.channels.cache.values()) {
+          if (
+            ch.isTextBased() &&
+            !ch.isThread() &&
+            ch.permissionsFor(client.user.id)?.has('SendMessages')
+          ) {
+            channels.push({
+              id: ch.id,
+              name: ch.name,
+              guildName: guild.name,
+            });
+          }
+        }
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, channels }));
+      res.end(JSON.stringify({ ok: true, channels, activeGuild: activeGuild?.name || null }));
       return;
     }
 
@@ -159,10 +226,12 @@ function createServer(storage, client) {
       req.on('data', (chunk) => (body += chunk));
       req.on('end', async () => {
         try {
-          const { channelId, username, game } = JSON.parse(body || '{}');
+          const { channelId, username, game, roomId: clientRoomId, userId: clientUserId } = JSON.parse(body || '{}');
           let sent = false;
           let inviteUrl = null;
-          const gameTitle = game === 'snake' ? 'Змейку 🐍' : '2048 🔢';
+          const isSnake = game === 'snake' || game === 'змейка';
+          const gameTitle = isSnake ? 'Змейку 🐍' : '2048 🔢';
+          const accentColor = isSnake ? 0x10b981 : 0xedc22e;
 
           if (client) {
             let targetTextChannel = null;
@@ -178,25 +247,62 @@ function createServer(storage, client) {
               }
             }
 
-            // Если передан ID голосового канала или канал не найден — берём текстовый
-            if (!targetTextChannel && channelId) {
-              const ch = client.channels.cache.get(channelId);
-              if (ch && ch.isVoiceBased()) {
-                targetTextChannel = ch.guild.channels.cache.find(
-                  (c) =>
-                    c.isTextBased() &&
-                    !c.isThread() &&
-                    c.permissionsFor(client.user.id)?.has('SendMessages')
-                );
+            // Find voice channel to create or reuse invite
+            let voiceChannel = null;
+            if (clientRoomId && client.channels.cache.has(clientRoomId)) {
+              const vc = client.channels.cache.get(clientRoomId);
+              if (vc?.isVoiceBased?.()) voiceChannel = vc;
+            }
+
+            const targetUserId = clientUserId || storage?.data?.meta?.lastLaunch?.userId || '566547457568276494';
+            if (!voiceChannel && targetUserId) {
+              const session = client.voiceTracker?.activeSessions?.get(targetUserId);
+              if (session?.channelId && client.channels.cache.has(session.channelId)) {
+                voiceChannel = client.channels.cache.get(session.channelId);
+              }
+            }
+
+            if (!voiceChannel && targetUserId && client.guilds?.cache) {
+              for (const g of client.guilds.cache.values()) {
+                const vs = g.voiceStates?.cache?.get(targetUserId);
+                if (vs?.channelId && client.channels.cache.has(vs.channelId)) {
+                  voiceChannel = client.channels.cache.get(vs.channelId);
+                  break;
+                }
+              }
+            }
+
+            if (!voiceChannel && storage?.data?.meta?.lastLaunch?.inviteUrl) {
+              inviteUrl = storage.data.meta.lastLaunch.inviteUrl;
+            }
+
+            if (voiceChannel && typeof voiceChannel.createInvite === 'function' && !inviteUrl) {
+              try {
+                const invite = await voiceChannel.createInvite({
+                  targetType: 2,
+                  targetApplication: client.user.id,
+                  maxAge: 86400,
+                  maxUses: 0,
+                });
+                inviteUrl = invite.url;
+              } catch {
                 try {
-                  const invite = await ch.createInvite({
-                    targetType: 2,
-                    targetApplication: client.user.id,
+                  const fallbackInvite = await voiceChannel.createInvite({
                     maxAge: 86400,
+                    maxUses: 0,
                   });
-                  inviteUrl = invite.url;
+                  inviteUrl = fallbackInvite.url;
                 } catch {}
               }
+            }
+
+            if (!targetTextChannel && voiceChannel?.guild) {
+              targetTextChannel = voiceChannel.guild.channels.cache.find(
+                (c) =>
+                  c.isTextBased() &&
+                  !c.isThread() &&
+                  c.permissionsFor(client.user.id)?.has('SendMessages')
+              );
             }
 
             if (!targetTextChannel) {
@@ -215,11 +321,40 @@ function createServer(storage, client) {
             }
 
             if (targetTextChannel) {
-              const link = inviteUrl || 'жми /2048 или /змейка';
-              await targetTextChannel.send(
-                `⚔️ **${username || 'Игрок'}** зовёт всех в **${gameTitle} (Дуэль)**!\n👉 Залетайте в игру: ${link}`
-              );
-              sent = true;
+              try {
+                const container = new ContainerBuilder().setAccentColor(accentColor);
+                const desc = isSnake
+                  ? `⚔️ **${username || 'Игрок'}** вызывает всех на битву в **Змейку (Дуэль на одной карте)**!\nЗаходи и покажи свой скилл!`
+                  : `⚔️ **${username || 'Игрок'}** вызывает всех в **2048 (Дуэль)**!\nКто наберёт больше очков?`;
+
+                container.addTextDisplayComponents(
+                  new TextDisplayBuilder().setContent(
+                    `### ⚔️ Приглашение в ${gameTitle}\n${desc}${inviteUrl ? `\n\n👉 **Инвайт:** ${inviteUrl}` : ''}`
+                  )
+                );
+
+                if (inviteUrl) {
+                  const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                      .setStyle(ButtonStyle.Link)
+                      .setLabel(isSnake ? '🐍 Зайти в Змейку' : '🎮 Зайти в 2048')
+                      .setURL(inviteUrl)
+                  );
+                  container.addActionRowComponents(row);
+                }
+
+                await targetTextChannel.send({
+                  components: [container],
+                  flags: MessageFlags.IsComponentsV2,
+                });
+                sent = true;
+              } catch {
+                const link = inviteUrl || 'жми команду в чате';
+                await targetTextChannel.send(
+                  `⚔️ **${username || 'Игрок'}** зовёт всех в **${gameTitle} (Дуэль)**!\n👉 Залетайте в игру: ${link}`
+                );
+                sent = true;
+              }
             }
           }
 

@@ -316,9 +316,12 @@ const btnCancelSendInvite = document.getElementById('btnCancelSendInvite');
 
 async function openChannelSelect(game = '2048') {
   currentInviteGame = game;
-  if (!cachedChannels) {
+  if (!cachedChannels || cachedChannels.length === 0) {
     try {
-      const res = await fetch('/api/channels');
+      const params = new URLSearchParams();
+      if (roomId && roomId !== 'default_room') params.set('channelId', roomId);
+      if (currentUser?.id) params.set('userId', currentUser.id);
+      const res = await fetch(`/api/channels?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         cachedChannels = data.channels || [];
@@ -332,7 +335,7 @@ async function openChannelSelect(game = '2048') {
       for (const ch of cachedChannels) {
         const opt = document.createElement('option');
         opt.value = ch.id;
-        opt.textContent = `#${ch.name} (${ch.guildName || 'Сервер'})`;
+        opt.textContent = `#${ch.name}`;
         channelSelectDropdown.appendChild(opt);
       }
     } else {
@@ -366,7 +369,9 @@ if (btnConfirmSendInvite) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           channelId: selectedChannelId,
-          username: currentUser.username,
+          username: currentUser?.username || 'Игрок',
+          userId: currentUser?.id,
+          roomId: roomId,
           game: currentInviteGame,
         }),
       });

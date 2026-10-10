@@ -187,6 +187,26 @@ async function run(name, opts) {
     check('особый статус создателя', text.includes('СОЗДАТЕЛЬ БОТА') && text.includes('Архитектор системы'));
   }
 
+  console.log('\n/2048:');
+  {
+    const st = await run('2048', { userId: '10' });
+    check('ответ отправлен', st.replies + st.edits === 1);
+    check('контейнер 2048', Boolean(st.payload?.components?.[0]));
+    const text = JSON.stringify(st.payload);
+    check('заголовок 2048', text.includes('2048 · Discord Activity'));
+  }
+
+  console.log('\n/змейка:');
+  {
+    storage.setBestScore('snake', '10', 42);
+    const st = await run('змейка', { userId: '10' });
+    check('ответ отправлен', st.replies + st.edits === 1);
+    check('контейнер змейки', Boolean(st.payload?.components?.[0]));
+    const text = JSON.stringify(st.payload);
+    check('заголовок змейки', text.includes('Змейка · Discord Activity'));
+    check('рекорд змейки', text.includes('Твой рекорд в Змейке: **42**'));
+  }
+
   console.log('\nНеизвестная команда:');
   {
     const st = await run('нетакая');
