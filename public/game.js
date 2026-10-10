@@ -13,10 +13,13 @@ let currentUser = {
 let roomId = 'default_room';
 let gameMode = 'solo'; // 'solo' | 'duel'
 let duelPollTimer = null;
+let botDuelInterval = null;
+let botScore = 0;
+let isBotActive = false;
 
-let board = []; // 4x4 array of tile objects or null
+let board = [];
 let tileIdSeq = 1;
-let isMoving = false; // prevents input spam during sliding
+let isMoving = false;
 
 let score = 0;
 let bestScore = 0;
@@ -36,7 +39,10 @@ const themeIconEl = document.getElementById('themeIcon');
 
 const btnModeSolo = document.getElementById('btnModeSolo');
 const btnModeDuel = document.getElementById('btnModeDuel');
-const duelBar = document.getElementById('duelBar');
+const duelSection = document.getElementById('duelSection');
+const btnInviteFriend = document.getElementById('btnInviteFriend');
+const btnToggleBot = document.getElementById('btnToggleBot');
+
 const myDuelAvatar = document.getElementById('myDuelAvatar');
 const myDuelName = document.getElementById('myDuelName');
 const myDuelScore = document.getElementById('myDuelScore');
@@ -175,24 +181,86 @@ function setBestScore(val) {
 }
 
 /* ========================================================
-   3. Multiplayer Duel Mode
+   3. Multiplayer Duel Mode & Invites
 ======================================================== */
 function setupModes() {
   btnModeSolo.addEventListener('click', () => {
     gameMode = 'solo';
     btnModeSolo.classList.add('active');
     btnModeDuel.classList.remove('active');
-    duelBar.classList.add('hidden');
+    duelSection.classList.add('hidden');
     stopDuelPolling();
+    stopBotDuel();
   });
 
   btnModeDuel.addEventListener('click', () => {
     gameMode = 'duel';
     btnModeDuel.classList.add('active');
     btnModeSolo.classList.remove('active');
-    duelBar.classList.remove('hidden');
+    duelSection.classList.remove('hidden');
     startDuelPolling();
   });
+
+  // Кнопка приглашения в активность через Discord SDK
+  btnInviteFriend.addEventListener('click', async () => {
+    if (discordSdk && discordSdk.commands && typeof discordSdk.commands.openInviteDialog === 'function') {
+      try {
+        await discordSdk.commands.openInviteDialog();
+        return;
+      } catch (err) {
+        console.log('[Discord SDK] openInviteDialog error:', err.message);
+      }
+    }
+
+    // Если SDK недоступен — копируем ссылку
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      alert('Ссылка на активность скопирована! Отправь её друзьям.');
+    } catch {
+      alert('Позови друга в голосовой канал Discord и нажми играть вместе!');
+    }
+  });
+
+  // Кнопка тренировки / дуэли с ботом
+  btnToggleBot.addEventListener('click', () => {
+    if (isBotActive) {
+      stopBotDuel();
+      btnToggleBot.textContent = '🤖 Дуэль с ботом';
+      duelStatusText.textContent = 'Бот остановлен';
+    } else {
+      startBotDuel();
+      btnToggleBot.textContent = '⏹️ Стоп бота';
+      duelStatusText.textContent = 'Баттл с ботом! 🤖';
+    }
+  });
+}
+
+function startBotDuel() {
+  isBotActive = true;
+  botScore = 0;
+  oppDuelName.textContent = 'Бот Вася 🤖';
+  oppDuelAvatar.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23f59e0b"%3E%3Cpath d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.38-1 1.72V7h2a3 3 0 0 1 3 3v2h1a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-1v1a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3v-1H5a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h1v-2a3 3 0 0 1 3-3h2V5.72A2 2 0 0 1 12 2zm-3 8a1 1 0 0 0-1 1v2a1 1 0 0 0 2 0v-2a1 1 0 0 0-1-1zm6 0a1 1 0 0 0-1 1v2a1 1 0 0 0 2 0v-2a1 1 0 0 0-1-1z"/%3E%3C/svg%3E';
+
+  if (botDuelInterval) clearInterval(botDuelInterval);
+  botDuelInterval = setInterval(() => {
+    if (!isBotActive) return;
+    botScore += Math.floor(Math.random() * 12 + 4) * 2;
+    oppDuelScore.textContent = botScore;
+
+    if (score > botScore) {
+      duelStatusText.textContent = 'Ты ведёшь! 🔥';
+    } else if (score < botScore) {
+      duelStatusText.textContent = 'Бот обгоняет! ⚡';
+    } else {
+      duelStatusText.textContent = 'Ничья! 🤝';
+    }
+  }, 1300);
+}
+
+function stopBotDuel() {
+  isBotActive = false;
+  if (botDuelInterval) clearInterval(botDuelInterval);
+  botDuelInterval = null;
 }
 
 function startDuelPolling() {
@@ -237,13 +305,22 @@ async function syncDuelState() {
 function updateDuelUI(players) {
   myDuelScore.textContent = score;
 
+  // Если активен бот и реальных соперников нет — бот имеет приоритет
   const opponents = players.filter((p) => p.userId !== currentUser.id);
 
   if (opponents.length === 0) {
-    oppDuelName.textContent = 'Ждём друга...';
-    oppDuelScore.textContent = '0';
-    duelStatusText.textContent = 'Один в войсе';
+    if (!isBotActive) {
+      oppDuelName.textContent = 'Ожидание...';
+      oppDuelScore.textContent = '0';
+      duelStatusText.textContent = 'Позови друга кнопкой выше 👆';
+    }
     return;
+  }
+
+  // Если пришёл реальный соперник — отключаем бота и играем с другом!
+  if (isBotActive) {
+    stopBotDuel();
+    btnToggleBot.textContent = '🤖 Дуэль с ботом';
   }
 
   opponents.sort((a, b) => b.score - a.score);
@@ -277,17 +354,8 @@ function getMaxTile() {
 }
 
 /* ========================================================
-   4. 2048 Engine: Smooth Sliding & Two-Layer Tiles
+   4. 2048 Engine: Smooth Sliding & Zero-Glitch Layout
 ======================================================= */
-function getCellMetrics() {
-  const rect = boardEl.getBoundingClientRect();
-  const isMobile = window.innerWidth <= 400;
-  const gap = isMobile ? 8 : 12;
-  const padding = isMobile ? 8 : 12;
-  const cellSize = (rect.width - padding * 2 - gap * (SIZE - 1)) / SIZE;
-  return { gap, padding, cellSize };
-}
-
 function initGame() {
   tileContainer.innerHTML = '';
   board = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
@@ -323,7 +391,6 @@ function spawnTile() {
     c,
     merged: false,
     el: null,
-    inner: null,
   };
 
   board[r][c] = tile;
@@ -332,35 +399,27 @@ function spawnTile() {
 }
 
 function createTileDOM(tile, isNew = false) {
-  const { gap, cellSize } = getCellMetrics();
-
   const el = document.createElement('div');
-  el.className = `tile ${isNew ? 'tile-new' : ''}`;
-  const x = tile.c * (cellSize + gap);
-  const y = tile.r * (cellSize + gap);
-  el.style.transform = `translate(${x}px, ${y}px)`;
-  el.style.width = `${cellSize}px`;
-  el.style.height = `${cellSize}px`;
+  const cls = tile.value <= 2048 ? `tile-${tile.value}` : 'tile-super';
+  el.className = `tile ${cls} ${isNew ? 'tile-new' : ''}`;
+
+  // Точные проценты с учётом отступа между плитками
+  el.style.transform = `translate(calc(${tile.c} * (100% + var(--tile-gap))), calc(${tile.r} * (100% + var(--tile-gap))))`;
 
   const inner = document.createElement('div');
-  const cls = tile.value <= 2048 ? `tile-inner-${tile.value}` : 'tile-inner-super';
-  inner.className = `tile-inner ${cls}`;
+  inner.className = 'tile-inner';
   inner.textContent = tile.value;
 
   el.appendChild(inner);
   tileContainer.appendChild(el);
 
   tile.el = el;
-  tile.inner = inner;
   return el;
 }
 
 function updateTilePosition(tile) {
   if (!tile || !tile.el) return;
-  const { gap, cellSize } = getCellMetrics();
-  const x = tile.c * (cellSize + gap);
-  const y = tile.r * (cellSize + gap);
-  tile.el.style.transform = `translate(${x}px, ${y}px)`;
+  tile.el.style.transform = `translate(calc(${tile.c} * (100% + var(--tile-gap))), calc(${tile.r} * (100% + var(--tile-gap))))`;
 }
 
 function move(dir) {
@@ -378,7 +437,6 @@ function move(dir) {
   const rOrder = vector[0] === 1 ? [3, 2, 1, 0] : [0, 1, 2, 3];
   const cOrder = vector[1] === 1 ? [3, 2, 1, 0] : [0, 1, 2, 3];
 
-  // Сбрасываем флаг слияния прошлого хода
   for (let r = 0; r < SIZE; r += 1) {
     for (let c = 0; c < SIZE; c += 1) {
       if (board[r][c]) board[r][c].merged = false;
@@ -397,7 +455,6 @@ function move(dir) {
       let targetR = r;
       let targetC = c;
 
-      // Ищем самую дальнюю клетку
       while (true) {
         const nextR = targetR + vector[0];
         const nextC = targetC + vector[1];
@@ -421,13 +478,12 @@ function move(dir) {
         const targetTile = board[targetR][targetC];
 
         if (targetTile && targetTile.value === tile.value) {
-          // Слияние двух плиток в одну
+          // Слияние
           board[r][c] = null;
           tile.r = targetR;
           tile.c = targetC;
           updateTilePosition(tile);
 
-          // Создаём объединённую плитку
           const mergedTile = {
             id: tileIdSeq++,
             value: tile.value * 2,
@@ -435,7 +491,6 @@ function move(dir) {
             c: targetC,
             merged: true,
             el: null,
-            inner: null,
           };
           board[targetR][targetC] = mergedTile;
           scoreGained += mergedTile.value;
@@ -446,7 +501,7 @@ function move(dir) {
             newTile: mergedTile,
           });
         } else {
-          // Простое перемещение
+          // Скольжение
           board[r][c] = null;
           board[targetR][targetC] = tile;
           tile.r = targetR;
@@ -469,7 +524,6 @@ function move(dir) {
 
     if (gameMode === 'duel') syncDuelState();
 
-    // Завершаем анимацию слияния через 100мс
     setTimeout(() => {
       for (const { oldTile1, oldTile2, newTile } of tilesToClean) {
         if (oldTile1.el) oldTile1.el.remove();
@@ -509,7 +563,7 @@ function showGameOver() {
 }
 
 /* ========================================================
-   5. Input Controls (Keyboard + Touch Swipes)
+   5. Input Controls
 ======================================================== */
 window.addEventListener('keydown', (e) => {
   switch (e.key) {
