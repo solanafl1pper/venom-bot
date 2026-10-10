@@ -8,6 +8,7 @@ const { Storage } = require('./src/storage');
 const { register } = require('./src/commands');
 const { startPresence } = require('./src/presence');
 const { VoiceTracker } = require('./src/voice');
+const { startServer } = require('./src/server');
 const trigger = require('./src/commands/trigger');
 
 function loadEnv() {
@@ -56,6 +57,7 @@ async function main() {
   }
 
   const storage = new Storage(path.join(__dirname, 'data', 'sud.json')).load();
+  startServer(storage, process.env.PORT || 3000);
 
   const client = new Client({
     intents: [

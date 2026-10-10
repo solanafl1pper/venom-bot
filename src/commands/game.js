@@ -34,13 +34,18 @@ function buildControlRow(prefix, disabled = false) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`${prefix}:end`)
-      .setLabel('🏁 Закончить')
+      .setLabel('🏁 Сдаться')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(disabled),
     new ButtonBuilder()
       .setCustomId(`${prefix}:restart`)
       .setLabel('🔄 Заново')
       .setStyle(ButtonStyle.Success)
+      .setDisabled(disabled),
+    new ButtonBuilder()
+      .setCustomId(`${prefix}:activity`)
+      .setLabel('🚀 В войсе')
+      .setStyle(ButtonStyle.Primary)
       .setDisabled(disabled),
   );
 }
@@ -165,6 +170,50 @@ function registerGame(client, storage) {
       }
 
       const dir = i.customId.split(':')[2];
+
+      if (dir === 'activity') {
+        const member = i.member;
+        const voiceChannel = member?.voice?.channel;
+        if (!voiceChannel) {
+          const hint = new ContainerBuilder()
+            .setAccentColor(0xfca5a5)
+            .addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(
+                '### 🎙️ Зайди в голосовой канал\nЧтобы запустить активность 2048, сначала подключись к любому голосовому каналу сервера и нажми кнопку снова!',
+              ),
+            );
+          await i.reply({ components: [hint], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] }).catch(() => {});
+          return;
+        }
+
+        try {
+          const invite = await voiceChannel.createInvite({
+            targetType: 2, // InviteTargetType.EmbeddedApplication
+            targetApplication: client.user.id,
+            maxAge: 3600,
+            maxUses: 0,
+          });
+          const card = new ContainerBuilder()
+            .setAccentColor(0x5865f2)
+            .addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(
+                `### 🚀 Активность 2048 запущена!\nПодключайся к каналу <#${voiceChannel.id}> и жми играть:\nhttps://discord.gg/${invite.code}`,
+              ),
+            );
+          await i.reply({ components: [card], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] }).catch(() => {});
+        } catch {
+          const fallbackCard = new ContainerBuilder()
+            .setAccentColor(0x38bdf8)
+            .addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(
+                `### 🚀 2048 в войсе\nЗайди в канал <#${voiceChannel.id}>, нажми значок ракеты **🚀** внизу экрана и выбери **2048**!`,
+              ),
+            );
+          await i.reply({ components: [fallbackCard], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] }).catch(() => {});
+        }
+        return;
+      }
+
       await i.deferUpdate().catch(() => {});
 
       if (dir === 'end' || dir === 'restart') {
