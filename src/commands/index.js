@@ -52,6 +52,10 @@ function register(client, storage, tracker) {
     .setName('2048')
     .setDescription('Запустить 2048 прямо в Discord');
 
+  const cmdSnake = new SlashCommandBuilder()
+    .setName('змейка')
+    .setDescription('Запустить Змейку прямо в Discord');
+
   const cmdRandom = new SlashCommandBuilder()
     .setName('рандом')
     .setDescription('Случайный состав на Доту 2');
@@ -74,6 +78,7 @@ function register(client, storage, tracker) {
     cmdProfile,
     cmdWeather,
     cmdGame,
+    cmdSnake,
     cmdRandom,
     cmdVoice,
     cmdVoiceTop,
@@ -163,7 +168,7 @@ function register(client, storage, tracker) {
     });
   }
 
-  const needsDefer = new Set(['судимость', 'рейтинг', 'профиль', 'погода', '2048', 'рандом', 'войс', 'войстоп']);
+  const needsDefer = new Set(['судимость', 'рейтинг', 'профиль', 'погода', '2048', 'змейка', 'рандом', 'войс', 'войстоп']);
 
   const handlers = new Map([
     ['судимость', handleSud],
@@ -172,6 +177,7 @@ function register(client, storage, tracker) {
     ['профиль', (i) => client.handleProfile(i)],
     ['погода', (i) => client.handleWeather(i, storage)],
     ['2048', (i) => client.handleGame(i)],
+    ['змейка', (i) => client.handleGame(i)],
     ['рандом', (i) => handleRANDOM(i)],
     ['войс', (i) => client.handleVoice(i)],
     ['войстоп', (i) => client.handleVoiceTop(i)],

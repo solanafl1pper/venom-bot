@@ -294,6 +294,141 @@
     }
 
     /* ========================================================
+       Games Navigation Switcher (2048 / Змейка)
+    ======================================================== */
+    .games-nav-bar {
+      width: 100%;
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .game-nav-btn {
+      flex: 1;
+      background: var(--btn-bg);
+      border: 2px solid var(--btn-border);
+      color: var(--text-muted);
+      border-radius: 10px;
+      padding: 9px 0;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      box-shadow: var(--btn-shadow);
+    }
+
+    .game-nav-btn.active {
+      background: #5865f2;
+      color: #ffffff;
+      border-color: transparent;
+      box-shadow: 0 4px 10px rgba(88, 101, 242, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .game-nav-btn:active {
+      transform: translateY(1px);
+    }
+
+    /* Game Section Wrapper */
+    .game-section {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .game-section.hidden {
+      display: none !important;
+    }
+
+    /* Snake Canvas Container */
+    .snake-board-container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      max-width: 440px;
+      background: var(--board-bg);
+      border-radius: 12px;
+      padding: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #snakeCanvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+      background: var(--cell-bg);
+      display: block;
+      touch-action: none;
+    }
+
+    /* Mobile D-Pad for Snake */
+    .snake-dpad {
+      display: grid;
+      width: 100%;
+      max-width: 220px;
+      margin-top: 10px;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .dpad-btn {
+      background: var(--btn-bg);
+      border: 2px solid var(--btn-border);
+      color: var(--text-main);
+      border-radius: 10px;
+      font-size: 20px;
+      font-weight: 900;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      box-shadow: var(--btn-shadow);
+      transition: all 0.1s ease;
+    }
+
+    .dpad-btn:active {
+      transform: translateY(2px);
+      box-shadow: none;
+      background: #5865f2;
+      color: #fff;
+    }
+
+    /* Channel Selection Modal */
+    .channel-dropdown {
+      width: 100%;
+      background: var(--btn-bg);
+      color: var(--text-main);
+      border: 2px solid var(--btn-border);
+      border-radius: 8px;
+      padding: 10px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      font-weight: 800;
+      margin: 12px 0 16px;
+      outline: none;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .channel-actions {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+
+    /* ========================================================
        Duel Bar (во время матча)
     ======================================================== */
     .duel-section {
@@ -1020,14 +1155,24 @@
       </div>
     </div>
 
-    <!-- Переключатель режима: Соло / Дуэль -->
-    <div class="mode-bar">
-      <button class="mode-btn active" id="btnModeSolo">🕹️ Соло</button>
-      <button class="mode-btn" id="btnModeDuel">⚔️ Дуэль</button>
+    <!-- Переключатель игр: 2048 / Змейка -->
+    <div class="games-nav-bar">
+      <button class="game-nav-btn active" id="btnNav2048">🔢 2048</button>
+      <button class="game-nav-btn" id="btnNavSnake">🐍 ЗМЕЙКА</button>
     </div>
 
-    <!-- Секция дуэли (во время игры) -->
-    <div class="duel-section hidden" id="duelSection">
+    <!-- ==========================================
+         СЕКЦИЯ 1: 2048
+    ========================================== -->
+    <div id="section2048" class="game-section">
+      <!-- Переключатель режима: Соло / Дуэль -->
+      <div class="mode-bar">
+        <button class="mode-btn active" id="btnModeSolo">🕹️ Соло</button>
+        <button class="mode-btn" id="btnModeDuel">⚔️ Дуэль</button>
+      </div>
+
+      <!-- Секция дуэли (во время игры) -->
+      <div class="duel-section hidden" id="duelSection">
       <div class="duel-card">
         <div class="duel-players-row">
           <!-- Ты -->
@@ -1218,10 +1363,200 @@
     <footer class="footer">
       Стрелки / WASD / свайпы · СТОП фиксирует результат в профиль
     </footer>
+    </div> <!-- Конец #section2048 -->
+
+    <!-- ==========================================
+         СЕКЦИЯ 2: ЗМЕЙКА (SNAKE)
+    ========================================== -->
+    <div id="sectionSnake" class="game-section hidden">
+      <!-- Переключатель режима Змейки: Соло / Дуэль -->
+      <div class="mode-bar">
+        <button class="mode-btn active" id="btnSnakeModeSolo">🕹️ Соло</button>
+        <button class="mode-btn" id="btnSnakeModeDuel">⚔️ Дуэль (на 1 карте)</button>
+      </div>
+
+      <!-- Секция дуэли Змейки (на одной карте!) -->
+      <div class="duel-section hidden" id="snakeDuelSection">
+        <div class="duel-card">
+          <div class="duel-players-row">
+            <!-- Ты (Зелёная) -->
+            <div class="duel-player me">
+              <div class="duel-avatar-wrap" style="border-color:#10b981;">
+                <img id="snakeMyAvatar" src="https://cdn.discordapp.com/avatars/566547457568276494/1506363121c6ce8e148c9ccd26cb9639.png?size=256" alt="me">
+              </div>
+              <div class="duel-meta">
+                <span class="duel-name" id="snakeMyName">baal worship</span>
+                <div class="duel-score-row">
+                  <span class="duel-score" id="snakeMyScore" style="color:#10b981;">0</span>
+                  <span class="badge-max-tile" id="snakeMyLength">📏 3</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- VS Badge -->
+            <div class="duel-versus">
+              <span class="vs-badge" style="background:#10b981;">1 КАРТА</span>
+              <span class="duel-status-text" id="snakeDuelStatusText">Матч на 1 карте!</span>
+            </div>
+
+            <!-- Соперник (Оранжевая) -->
+            <div class="duel-player opponent">
+              <div class="duel-avatar-wrap" style="border-color:#f59e0b;">
+                <img id="snakeOppAvatar" src="https://cdn.discordapp.com/embed/avatars/2.png" alt="opp">
+              </div>
+              <div class="duel-meta">
+                <span class="duel-name" id="snakeOppName">Бот Вася</span>
+                <div class="duel-score-row">
+                  <span class="badge-max-tile" id="snakeOppLength">📏 3</span>
+                  <span class="duel-score" id="snakeOppScore" style="color:#f59e0b;">0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Полоса преимущества -->
+          <div class="duel-progress-bar">
+            <div class="duel-bar-me" id="snakeDuelBarMe" style="width: 50%; background:#10b981;"></div>
+            <div class="duel-bar-opp" id="snakeDuelBarOpp" style="width: 50%; background:#f59e0b;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Игровое поле Змейки -->
+      <main class="snake-board-container">
+        <canvas id="snakeCanvas"></canvas>
+
+        <!-- ЛОББИ ДУЭЛИ ЗМЕЙКИ -->
+        <div class="overlay hidden" id="snakeLobbyOverlay">
+          <div class="overlay-box lobby-box">
+            <h2 class="overlay-title">⚔️ ДУЭЛЬ НА ОДНОЙ КАРТЕ</h2>
+            <p class="overlay-desc">Две змейки ползают по одному полю! Собирай яблоки и подрезай соперника!</p>
+
+            <div class="lobby-players-card">
+              <!-- Ты -->
+              <div class="lobby-player">
+                <div class="lobby-avatar" style="border-color:#10b981;">
+                  <img id="snakeLobbyMyAvatar" src="https://cdn.discordapp.com/avatars/566547457568276494/1506363121c6ce8e148c9ccd26cb9639.png?size=256" alt="me">
+                </div>
+                <span class="lobby-name" id="snakeLobbyMyName">baal worship</span>
+                <span class="lobby-status-pill" style="background:#10b981;">🟢 ЗЕЛЁНЫЙ</span>
+              </div>
+
+              <span class="lobby-vs">VS</span>
+
+              <!-- Соперник -->
+              <div class="lobby-player opp">
+                <div class="lobby-avatar" style="border-color:#f59e0b;">
+                  <img id="snakeLobbyOppAvatar" src="https://cdn.discordapp.com/embed/avatars/2.png" alt="opp">
+                </div>
+                <span class="lobby-name" id="snakeLobbyOppName">Ожидание...</span>
+                <span class="lobby-status-pill" id="snakeLobbyOppStatus">НЕ ПОДКЛЮЧЁН</span>
+              </div>
+            </div>
+
+            <div class="lobby-actions">
+              <button class="btn btn-action success" id="btnSnakeStartDuel">
+                ⚔️ НАЧАТЬ ДУЭЛЬ
+              </button>
+              <button class="btn btn-action" id="btnSnakeBotChoice">
+                🤖 Играть с ботом
+              </button>
+              <div class="lobby-invite-group">
+                <button class="btn btn-action primary" id="btnSnakeInviteChat">
+                  📢 Позвать в чате
+                </button>
+                <button class="btn btn-action" id="btnSnakeCopyInvite">
+                  🔗 Копия ссылки
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Оверлей одиночного Game Over Змейки -->
+        <div class="overlay hidden" id="snakeGameOverOverlay">
+          <div class="overlay-box">
+            <h2 class="overlay-title">Врезался! 💥</h2>
+            <p class="overlay-desc">Твой счёт: <span id="snakeOverlayScore" style="color:#10b981; font-weight:900;">0</span></p>
+            <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">Рекорд сохранён в твой <b>/профиль</b>!</p>
+            <button class="btn btn-action primary" id="btnSnakeOverlayRestart">ИГРАТЬ СНОВА</button>
+          </div>
+        </div>
+
+        <!-- Оверлей результатов Дуэли Змейки -->
+        <div class="overlay hidden" id="snakeDuelResultOverlay">
+          <div class="overlay-box">
+            <div class="duel-result-icon" id="snakeDuelResultIcon">🏆</div>
+            <h2 class="overlay-title" id="snakeDuelResultTitle">ПОБЕДА В ЗМЕЙКЕ!</h2>
+            <p class="overlay-desc" id="snakeDuelResultDesc">Красава! Ты переиграл соперника на одном поле!</p>
+
+            <div class="duel-summary-cards">
+              <div class="summary-card">
+                <div class="summary-avatar" style="border-color:#10b981;">
+                  <img id="snakeSummaryMyAvatar" src="https://cdn.discordapp.com/avatars/566547457568276494/1506363121c6ce8e148c9ccd26cb9639.png?size=256" alt="me">
+                </div>
+                <span class="summary-name" id="snakeSummaryMyName">baal worship</span>
+                <span class="summary-score" id="snakeSummaryMyScore" style="color:#10b981;">0</span>
+                <span class="summary-max-tile" id="snakeSummaryMyLength">📏 3</span>
+              </div>
+
+              <span style="font-weight:900; color:#ef4444;">VS</span>
+
+              <div class="summary-card opp">
+                <div class="summary-avatar" style="border-color:#f59e0b;">
+                  <img id="snakeSummaryOppAvatar" src="https://cdn.discordapp.com/embed/avatars/2.png" alt="opp">
+                </div>
+                <span class="summary-name" id="snakeSummaryOppName">Бот Вася</span>
+                <span class="summary-score" id="snakeSummaryOppScore" style="color:#f59e0b;">0</span>
+                <span class="summary-max-tile" id="snakeSummaryOppLength">📏 3</span>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+              <button class="btn btn-action primary" id="btnSnakeDuelRematch">⚔️ РЕВАНШ</button>
+              <button class="btn btn-action" id="btnSnakeBackToLobby">🚪 В ЛОББИ</button>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Кнопки управления под полем Змейки -->
+      <div class="controls-row">
+        <button class="btn btn-action" id="btnSnakeNewGame">🔄 ЗАНОВО</button>
+        <button class="btn btn-action danger" id="btnSnakeStopGame">⏹️ СТОП</button>
+      </div>
+
+      <!-- Кнопки управления для телефона (D-Pad) -->
+      <div class="snake-dpad">
+        <div></div>
+        <button class="dpad-btn" id="snakeBtnU">⬆️</button>
+        <div></div>
+        <button class="dpad-btn" id="snakeBtnL">⬅️</button>
+        <button class="dpad-btn" id="snakeBtnD">⬇️</button>
+        <button class="dpad-btn" id="snakeBtnR">➡️</button>
+      </div>
+
+      <footer class="footer">
+        Стрелки / WASD / свайпы / кнопки · Две змейки на одной карте!
+      </footer>
+    </div> <!-- Конец #sectionSnake -->
+
+    <!-- Модалка выбора канала для инвайта -->
+    <div class="overlay hidden" id="channelSelectOverlay">
+      <div class="overlay-box" style="max-width: 360px;">
+        <h3 class="overlay-title">📢 Позвать в чате</h3>
+        <p class="overlay-desc">Выбери текстовый канал сервера для вызова:</p>
+        <select id="channelSelectDropdown" class="channel-dropdown"></select>
+        <div class="channel-actions">
+          <button class="btn btn-action primary" id="btnConfirmSendInvite">🚀 ОТПРАВИТЬ</button>
+          <button class="btn btn-action" id="btnCancelSendInvite">ОТМЕНА</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module">
-    import './game.js?v=2048_profile_v7';
+    import './game.js?v=multigames_v8';
   </script>
 </body>
 </html>

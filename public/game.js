@@ -1,5 +1,7 @@
 'use strict';
 
+import { SnakeGame } from './snake.js';
+
 const CLIENT_ID = '1558214657137975357';
 const SIZE = 4;
 
@@ -239,32 +241,10 @@ function setupModes() {
     };
   }
 
-  // Кнопка в лобби: Позвать в чате сервера
+  // Кнопка в лобби: Позвать в чате сервера (с выбором канала)
   if (btnInviteChat) {
-    btnInviteChat.onclick = async () => {
-      try {
-        btnInviteChat.textContent = '⏳ Зовём...';
-        const res = await fetch('/api/send-invite', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            channelId: roomId,
-            username: currentUser.username,
-          }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.inviteUrl) cachedInviteUrl = data.inviteUrl;
-          showToast('📢 Инвайт отправлен в чат сервера! Пацаны получили вызов.');
-        } else {
-          showToast('Инвайт отправлен в активный чат.');
-        }
-      } catch {
-        showToast('Позови друга в голосовой канал Discord!');
-      } finally {
-        btnInviteChat.textContent = '📢 Позвать в чате';
-      }
+    btnInviteChat.onclick = () => {
+      openChannelSelect('2048');
     };
   }
 
@@ -320,6 +300,154 @@ function setupModes() {
       if (duelResultOverlay) duelResultOverlay.classList.add('hidden');
       openDuelLobby();
     };
+  }
+}
+
+/* ========================================================
+   4.5 Channel Selection & Server Chat Invite
+======================================================== */
+let cachedChannels = null;
+let currentInviteGame = '2048';
+
+const channelSelectOverlay = document.getElementById('channelSelectOverlay');
+const channelSelectDropdown = document.getElementById('channelSelectDropdown');
+const btnConfirmSendInvite = document.getElementById('btnConfirmSendInvite');
+const btnCancelSendInvite = document.getElementById('btnCancelSendInvite');
+
+async function openChannelSelect(game = '2048') {
+  currentInviteGame = game;
+  if (!cachedChannels) {
+    try {
+      const res = await fetch('/api/channels');
+      if (res.ok) {
+        const data = await res.json();
+        cachedChannels = data.channels || [];
+      }
+    } catch {}
+  }
+
+  if (channelSelectDropdown) {
+    channelSelectDropdown.innerHTML = '';
+    if (cachedChannels && cachedChannels.length > 0) {
+      for (const ch of cachedChannels) {
+        const opt = document.createElement('option');
+        opt.value = ch.id;
+        opt.textContent = `#${ch.name} (${ch.guildName || 'Сервер'})`;
+        channelSelectDropdown.appendChild(opt);
+      }
+    } else {
+      const opt = document.createElement('option');
+      opt.value = roomId;
+      opt.textContent = 'Основной текстовый чат';
+      channelSelectDropdown.appendChild(opt);
+    }
+  }
+
+  if (channelSelectOverlay) {
+    channelSelectOverlay.classList.remove('hidden');
+  }
+}
+
+if (btnCancelSendInvite) {
+  btnCancelSendInvite.onclick = () => {
+    if (channelSelectOverlay) channelSelectOverlay.classList.add('hidden');
+  };
+}
+
+if (btnConfirmSendInvite) {
+  btnConfirmSendInvite.onclick = async () => {
+    const selectedChannelId = channelSelectDropdown?.value || roomId;
+    const selectedText = channelSelectDropdown?.selectedOptions?.[0]?.textContent || 'чат';
+    btnConfirmSendInvite.textContent = '⏳ Отправляем...';
+
+    try {
+      const res = await fetch('/api/send-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channelId: selectedChannelId,
+          username: currentUser.username,
+          game: currentInviteGame,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.inviteUrl) cachedInviteUrl = data.inviteUrl;
+        showToast(`📢 Вызов отправлен в ${selectedText}! Пацаны получили инвайт.`);
+      } else {
+        showToast('📢 Инвайт отправлен в чат!');
+      }
+    } catch {
+      showToast('Ошибка при отправке инвайта.');
+    } finally {
+      btnConfirmSendInvite.textContent = '🚀 ОТПРАВИТЬ';
+      if (channelSelectOverlay) channelSelectOverlay.classList.add('hidden');
+    }
+  };
+}
+
+/* ========================================================
+   4.8 Mini-Games Hub Switcher (2048 & Змейка)
+======================================================== */
+let activeGame = '2048';
+let snakeGame = null;
+
+const btnNav2048 = document.getElementById('btnNav2048');
+const btnNavSnake = document.getElementById('btnNavSnake');
+const section2048 = document.getElementById('section2048');
+const sectionSnake = document.getElementById('sectionSnake');
+const logoBoxEl = document.querySelector('.logo-box');
+
+function setupGameSwitcher() {
+  if (btnNav2048) {
+    btnNav2048.onclick = () => switchActiveGame('2048');
+  }
+  if (btnNavSnake) {
+    btnNavSnake.onclick = () => switchActiveGame('snake');
+  }
+}
+
+function switchActiveGame(gameName) {
+  activeGame = gameName;
+  if (gameName === '2048') {
+    if (btnNav2048) btnNav2048.classList.add('active');
+    if (btnNavSnake) btnNavSnake.classList.remove('active');
+    if (section2048) section2048.classList.remove('hidden');
+    if (sectionSnake) sectionSnake.classList.add('hidden');
+    if (logoBoxEl) logoBoxEl.textContent = '2048';
+    if (currentScoreEl) currentScoreEl.textContent = score;
+    if (bestScoreEl) bestScoreEl.textContent = bestScore;
+    if (mainProfileRecord) mainProfileRecord.textContent = bestScore;
+  } else {
+    if (btnNavSnake) btnNavSnake.classList.add('active');
+    if (btnNav2048) btnNav2048.classList.remove('active');
+    if (sectionSnake) sectionSnake.classList.remove('hidden');
+    if (section2048) section2048.classList.add('hidden');
+    if (logoBoxEl) logoBoxEl.textContent = 'ЗМЕЙКА';
+
+    if (!snakeGame) {
+      snakeGame = new SnakeGame({
+        getCurrentUser: () => currentUser,
+        getRoomId: () => roomId,
+        showToast,
+        onScoreUpdate: (s, b) => {
+          if (activeGame === 'snake') {
+            if (currentScoreEl) currentScoreEl.textContent = s;
+            if (bestScoreEl) bestScoreEl.textContent = b;
+            if (mainProfileRecord) mainProfileRecord.textContent = b;
+          }
+        },
+        openChannelSelect: (g) => openChannelSelect(g),
+      });
+      snakeGame.startSoloGame();
+    } else {
+      if (currentScoreEl) currentScoreEl.textContent = snakeGame.score;
+      if (bestScoreEl) bestScoreEl.textContent = snakeGame.bestScore;
+      if (mainProfileRecord) mainProfileRecord.textContent = snakeGame.bestScore;
+      snakeGame.setupCanvas();
+      snakeGame.render();
+    }
   }
 }
 
@@ -1105,6 +1233,7 @@ window.addEventListener('resize', () => {
 ======================================================== */
 initTheme();
 setupModes();
+setupGameSwitcher();
 updateProfileUI();
 initDiscord();
 initGame();

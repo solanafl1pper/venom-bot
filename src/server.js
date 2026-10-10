@@ -15,6 +15,7 @@ const MIME_TYPES = {
 };
 
 const duelRooms = new Map();
+const snakeDuelRooms = new Map();
 
 function createServer(storage, client) {
   const publicDir = path.join(__dirname, '..', 'public');
@@ -33,7 +34,12 @@ function createServer(storage, client) {
 
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const pathname = url.pathname;
-    if (pathname !== '/api/duel/sync' && pathname !== '/api/duel/state' && pathname !== '/health') {
+    if (
+      pathname !== '/api/duel/sync' &&
+      pathname !== '/api/duel/state' &&
+      pathname !== '/api/snake/sync' &&
+      pathname !== '/health'
+    ) {
       console.log(`[веб] ${req.method} ${pathname}`);
     }
 
@@ -104,10 +110,46 @@ function createServer(storage, client) {
         inviteUrl = meta.lastLaunch.inviteUrl;
       }
 
-      const userBestScore = user?.userId && storage ? storage.bestScore('2048', user.userId) : 0;
+      const best2048 = user?.userId && storage ? storage.bestScore('2048', user.userId) : 0;
+      const bestSnake = user?.userId && storage ? storage.bestScore('snake', user.userId) : 0;
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, user, bestScore: userBestScore, channelMembers, inviteUrl }));
+      res.end(
+        JSON.stringify({
+          ok: true,
+          user,
+          bestScore: best2048,
+          best2048,
+          bestSnake,
+          channelMembers,
+          inviteUrl,
+        })
+      );
+      return;
+    }
+
+    // 1.7 API: Get sendable text channels for inviting
+    if (pathname === '/api/channels' && req.method === 'GET') {
+      const channels = [];
+      if (client?.guilds?.cache) {
+        for (const guild of client.guilds.cache.values()) {
+          for (const ch of guild.channels.cache.values()) {
+            if (
+              ch.isTextBased() &&
+              !ch.isThread() &&
+              ch.permissionsFor(client.user.id)?.has('SendMessages')
+            ) {
+              channels.push({
+                id: ch.id,
+                name: ch.name,
+                guildName: guild.name,
+              });
+            }
+          }
+        }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, channels }));
       return;
     }
 
@@ -117,36 +159,53 @@ function createServer(storage, client) {
       req.on('data', (chunk) => (body += chunk));
       req.on('end', async () => {
         try {
-          const { channelId, username } = JSON.parse(body || '{}');
+          const { channelId, username, game } = JSON.parse(body || '{}');
           let sent = false;
           let inviteUrl = null;
+          const gameTitle = game === 'snake' ? 'Змейку 🐍' : '2048 🔢';
 
           if (client) {
-            let channel = channelId ? client.channels.cache.get(channelId) : null;
             let targetTextChannel = null;
 
-            if (channel) {
-              if (channel.isVoiceBased()) {
-                targetTextChannel = channel.guild.channels.cache.find(
-                  (c) => c.isTextBased() && c.permissionsFor(client.user.id)?.has('SendMessages')
+            if (channelId) {
+              const ch = client.channels.cache.get(channelId);
+              if (
+                ch &&
+                ch.isTextBased() &&
+                ch.permissionsFor(client.user.id)?.has('SendMessages')
+              ) {
+                targetTextChannel = ch;
+              }
+            }
+
+            // Если передан ID голосового канала или канал не найден — берём текстовый
+            if (!targetTextChannel && channelId) {
+              const ch = client.channels.cache.get(channelId);
+              if (ch && ch.isVoiceBased()) {
+                targetTextChannel = ch.guild.channels.cache.find(
+                  (c) =>
+                    c.isTextBased() &&
+                    !c.isThread() &&
+                    c.permissionsFor(client.user.id)?.has('SendMessages')
                 );
                 try {
-                  const invite = await channel.createInvite({
+                  const invite = await ch.createInvite({
                     targetType: 2,
                     targetApplication: client.user.id,
                     maxAge: 86400,
                   });
                   inviteUrl = invite.url;
                 } catch {}
-              } else if (channel.isTextBased()) {
-                targetTextChannel = channel;
               }
             }
 
             if (!targetTextChannel) {
               for (const guild of client.guilds.cache.values()) {
                 const tc = guild.channels.cache.find(
-                  (c) => c.isTextBased() && c.permissionsFor(client.user.id)?.has('SendMessages')
+                  (c) =>
+                    c.isTextBased() &&
+                    !c.isThread() &&
+                    c.permissionsFor(client.user.id)?.has('SendMessages')
                 );
                 if (tc) {
                   targetTextChannel = tc;
@@ -156,9 +215,9 @@ function createServer(storage, client) {
             }
 
             if (targetTextChannel) {
-              const link = inviteUrl || 'жми /2048';
+              const link = inviteUrl || 'жми /2048 или /змейка';
               await targetTextChannel.send(
-                `⚔️ **${username || 'Игрок'}** зовёт всех в **2048 (Дуэль)**!\n👉 Залетайте в игру: ${link}`
+                `⚔️ **${username || 'Игрок'}** зовёт всех в **${gameTitle} (Дуэль)**!\n👉 Залетайте в игру: ${link}`
               );
               sent = true;
             }
@@ -217,9 +276,10 @@ function createServer(storage, client) {
     // 3. API: Get score
     if (pathname === '/api/score' && req.method === 'GET') {
       const userId = url.searchParams.get('userId');
-      const best = userId && storage ? storage.bestScore('2048', userId) : 0;
+      const gameParam = url.searchParams.get('game') || '2048';
+      const best = userId && storage ? storage.bestScore(gameParam, userId) : 0;
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ best }));
+      res.end(JSON.stringify({ best, game: gameParam }));
       return;
     }
 
@@ -229,7 +289,8 @@ function createServer(storage, client) {
       req.on('data', (chunk) => (body += chunk));
       req.on('end', () => {
         try {
-          let { userId, score, username, channelId } = JSON.parse(body || '{}');
+          let { userId, score, username, channelId, game } = JSON.parse(body || '{}');
+          const gameKey = game === 'snake' ? 'snake' : '2048';
 
           // Автоматическая привязка к Discord ID лаунчера, если ID гостевой
           if ((!userId || userId.startsWith('guest_')) && storage) {
@@ -247,13 +308,13 @@ function createServer(storage, client) {
           }
 
           if (userId && typeof score === 'number' && storage) {
-            storage.setBestScore('2048', userId, score);
+            storage.setBestScore(gameKey, userId, score);
             if (username) storage.ensureUser(userId, { username });
-            console.log(`[рекорд 2048] Сохранён рекорд ${score} очков для ${username || userId} (${userId})`);
+            console.log(`[рекорд ${gameKey}] Сохранён рекорд ${score} очков для ${username || userId} (${userId})`);
           }
-          const best = userId && storage ? storage.bestScore('2048', userId) : score;
+          const best = userId && storage ? storage.bestScore(gameKey, userId) : score;
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, best, userId }));
+          res.end(JSON.stringify({ ok: true, best, userId, game: gameKey }));
         } catch (err) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: err.message }));
@@ -347,6 +408,131 @@ function createServer(storage, client) {
             p.moves = 0;
             p.isGameOver = false;
           }
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, roundId: roomObj?.roundId || 1 }));
+      });
+      return;
+    }
+
+    // 8. API: Snake duel sync (shared map multiplayer)
+    if (pathname === '/api/snake/sync' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (chunk) => (body += chunk));
+      req.on('end', () => {
+        try {
+          const {
+            roomId = 'main',
+            userId,
+            username,
+            avatar,
+            snake,
+            dir,
+            score = 0,
+            isAlive = true,
+          } = JSON.parse(body || '{}');
+
+          if (!userId) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'userId required' }));
+            return;
+          }
+
+          if (!snakeDuelRooms.has(roomId)) {
+            snakeDuelRooms.set(roomId, {
+              roundId: 1,
+              players: new Map(),
+              apples: [
+                { x: 10, y: 10 },
+                { x: 5, y: 15 },
+                { x: 15, y: 5 },
+              ],
+            });
+          }
+
+          const roomObj = snakeDuelRooms.get(roomId);
+          const room = roomObj.players;
+          const now = Date.now();
+
+          // Очистка неактивных игроков (> 60 сек)
+          for (const [uid, p] of room.entries()) {
+            if (now - p.lastSeen > 60_000 && uid !== userId) room.delete(uid);
+          }
+
+          room.set(userId, {
+            userId,
+            username: username || 'Игрок',
+            avatar: avatar || null,
+            snake: snake || [],
+            dir: dir || 'right',
+            score,
+            isAlive: Boolean(isAlive),
+            lastSeen: now,
+          });
+
+          const players = Array.from(room.values());
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              ok: true,
+              roundId: roomObj.roundId,
+              players,
+              apples: roomObj.apples,
+            })
+          );
+        } catch (err) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+      return;
+    }
+
+    // 9. API: Snake apple eaten
+    if (pathname === '/api/snake/eat' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (chunk) => (body += chunk));
+      req.on('end', () => {
+        try {
+          const { roomId = 'main', appleIndex } = JSON.parse(body || '{}');
+          const roomObj = snakeDuelRooms.get(roomId);
+          if (roomObj && Array.isArray(roomObj.apples)) {
+            const newApple = {
+              x: Math.floor(Math.random() * 18) + 1,
+              y: Math.floor(Math.random() * 18) + 1,
+            };
+            if (typeof appleIndex === 'number' && roomObj.apples[appleIndex]) {
+              roomObj.apples[appleIndex] = newApple;
+            } else {
+              roomObj.apples.push(newApple);
+              if (roomObj.apples.length > 3) roomObj.apples.shift();
+            }
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, apples: roomObj?.apples || [] }));
+        } catch (err) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+      return;
+    }
+
+    // 10. API: Snake duel reset
+    if (pathname === '/api/snake/reset' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (chunk) => (body += chunk));
+      req.on('end', () => {
+        const { roomId = 'main' } = JSON.parse(body || '{}');
+        const roomObj = snakeDuelRooms.get(roomId);
+        if (roomObj) {
+          roomObj.roundId = (roomObj.roundId || 1) + 1;
+          roomObj.players.clear();
+          roomObj.apples = [
+            { x: 10, y: 10 },
+            { x: 5, y: 15 },
+            { x: 15, y: 5 },
+          ];
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, roundId: roomObj?.roundId || 1 }));

@@ -11,7 +11,7 @@ const {
 
 const CREATOR_ID = '566547457568276494';
 
-function buildProfileContainer({ targetUser, userData, best2048, voiceStats }) {
+function buildProfileContainer({ targetUser, userData, best2048, bestSnake, voiceStats }) {
   const isCreator = String(targetUser.id) === CREATOR_ID;
   const container = new ContainerBuilder().setAccentColor(isCreator ? 0xf59e0b : 0x818cf8);
 
@@ -22,6 +22,7 @@ function buildProfileContainer({ targetUser, userData, best2048, voiceStats }) {
   const rollsCount = userData?.rolls || 0;
   const bestArticles = userData?.bestCount || 0;
   const gameScore = best2048 || 0;
+  const snakeScore = bestSnake || 0;
   const voiceTime = voiceStats?.formatted || '0 сек';
   const voiceSessions = voiceStats?.sessions || 0;
 
@@ -45,6 +46,7 @@ function buildProfileContainer({ targetUser, userData, best2048, voiceStats }) {
     `💬 Сообщений в чате: **${messagesCount}**`,
     `⚖️ Всего судимостей: **${rollsCount}** (рекорд: **${bestArticles}** ст.)`,
     `🎮 Рекорд в 2048: **${gameScore}** очков`,
+    `🐍 Рекорд в Змейке: **${snakeScore}** очков`,
     `🎙️ Время в войсе: **${voiceTime}** (${voiceSessions} сессий)`,
   ];
 
@@ -74,12 +76,14 @@ function registerProfile(client, storage, tracker) {
       guildId: interaction.guildId,
     });
     const best2048 = storage.bestScore('2048', target.id);
+    const bestSnake = storage.bestScore('snake', target.id);
     const voiceStats = tracker.getUserLiveStats(target.id);
 
     const container = buildProfileContainer({
       targetUser: target,
       userData,
       best2048,
+      bestSnake,
       voiceStats,
     });
 
