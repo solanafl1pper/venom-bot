@@ -82,9 +82,15 @@ class Storage {
         bestCount: 0,
         bestPoints: 0,
         history: [],
+        voiceTimeMs: 0,
+        voiceSessions: 0,
+        lastVoiceAt: null,
       };
-    } else if (profile.username) {
-      this.data.users[key].username = profile.username;
+    } else {
+      if (profile.username) this.data.users[key].username = profile.username;
+      if (this.data.users[key].voiceTimeMs === undefined) this.data.users[key].voiceTimeMs = 0;
+      if (this.data.users[key].voiceSessions === undefined) this.data.users[key].voiceSessions = 0;
+      if (this.data.users[key].lastVoiceAt === undefined) this.data.users[key].lastVoiceAt = null;
     }
     if (profile.guildId) this.data.users[key].guildId = profile.guildId;
     return this.data.users[key];

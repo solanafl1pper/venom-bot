@@ -154,7 +154,7 @@ try {
   check('кулдаун: заголовок про кулдаун', String(cool.description).includes('Кулдаун'));
 
   check('рейтинг: топ', buildTopEmbed(storage, storage.top(10)).toJSON().description.length > 0);
-  check('помощь: команды', buildHelpEmbed().toJSON().fields.length === 8, `полей ${buildHelpEmbed().toJSON().fields.length}`);
+  check('помощь: команды', buildHelpEmbed().toJSON().fields.length === 10, `полей ${buildHelpEmbed().toJSON().fields.length}`);
 } catch (err) {
   failures += 1;
   console.error('  FAIL сборка embed:', err.message);

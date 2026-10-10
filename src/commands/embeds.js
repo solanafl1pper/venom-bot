@@ -147,6 +147,8 @@ function buildHelpEmbed() {
       { name: '/судимость', value: 'испытать удачу (1–15 статей)', inline: true },
       { name: '/судимость @друг', value: 'проверить друга с пингом', inline: true },
       { name: '/рейтинг', value: 'доска почёта нашего чата', inline: true },
+      { name: '/войс', value: 'сколько часов сидел в войсе', inline: true },
+      { name: '/войстоп', value: 'топ любителей поболтать', inline: true },
       { name: '/2048', value: 'уютная залипалка кнопками', inline: true },
       { name: '/погода', value: 'как там за окном сейчас', inline: true },
       { name: '/погода Казань', value: 'погода в любом городе', inline: true },

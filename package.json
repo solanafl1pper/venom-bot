@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "invite": "node scripts/invite.js",
-    "test": "node scripts/test.js && node scripts/test-commands.js && node scripts/test-trigger.js && node scripts/test-presence.js && node scripts/test-2048.js && node scripts/test-random.js",
+    "test": "node scripts/test.js && node scripts/test-commands.js && node scripts/test-trigger.js && node scripts/test-presence.js && node scripts/test-2048.js && node scripts/test-random.js && node scripts/test-voice.js",
     "weather": "node scripts/test-weather-live.js"
   },
   "engines": {

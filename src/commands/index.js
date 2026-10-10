@@ -6,8 +6,10 @@ const { buildSudEmbed, buildCooldownEmbed, buildTopEmbed, buildHelpEmbed } = req
 const { registerWeather } = require('./weather');
 const { registerGame } = require('./game');
 const { handleRANDOM } = require('./random');
+const { registerVoice } = require('./voice');
+const { VoiceTracker } = require('../voice');
 
-function register(client, storage) {
+function register(client, storage, tracker) {
   const cmdSud = new SlashCommandBuilder()
     .setName('судимость')
     .setDescription('Показывает судимость участника (по умолчанию — вашу)')
@@ -41,10 +43,34 @@ function register(client, storage) {
     .setName('рандом')
     .setDescription('Случайный состав на Доту 2');
 
-  client.slashCommands = [cmdSud, cmdTop, cmdHelp, cmdWeather, cmdGame, cmdRandom];
+  const cmdVoice = new SlashCommandBuilder()
+    .setName('войс')
+    .setDescription('Сколько часов участник провёл в голосовых каналах')
+    .addUserOption((opt) =>
+      opt.setName('участник').setDescription('Кого проверить (по умолчанию — ты)').setRequired(false),
+    );
+
+  const cmdVoiceTop = new SlashCommandBuilder()
+    .setName('войстоп')
+    .setDescription('Топ участников по времени в голосовых каналах');
+
+  client.slashCommands = [
+    cmdSud,
+    cmdTop,
+    cmdHelp,
+    cmdWeather,
+    cmdGame,
+    cmdRandom,
+    cmdVoice,
+    cmdVoiceTop,
+  ];
+
+  const voiceTracker = tracker || client.voiceTracker || new VoiceTracker(storage);
+  client.voiceTracker = voiceTracker;
 
   registerWeather(client);
   registerGame(client, storage);
+  registerVoice(client, voiceTracker);
 
   // id прошлого ответа бота для «судимости» — чтобы удалять его при новой попытке.
   const lastSudMessage = new Map();
@@ -108,7 +134,7 @@ function register(client, storage) {
     await interaction.reply({ embeds: [buildHelpEmbed()], ephemeral: true });
   }
 
-  const needsDefer = new Set(['судимость', 'рейтинг', 'погода', '2048', 'рандом']);
+  const needsDefer = new Set(['судимость', 'рейтинг', 'погода', '2048', 'рандом', 'войс', 'войстоп']);
 
   const handlers = new Map([
     ['судимость', handleSud],
@@ -117,6 +143,8 @@ function register(client, storage) {
     ['погода', (i) => client.handleWeather(i, storage)],
     ['2048', (i) => client.handleGame(i)],
     ['рандом', (i) => handleRANDOM(i)],
+    ['войс', (i) => client.handleVoice(i)],
+    ['войстоп', (i) => client.handleVoiceTop(i)],
   ]);
 
   client.on('interactionCreate', async (interaction) => {

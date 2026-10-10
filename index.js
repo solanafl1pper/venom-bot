@@ -7,6 +7,7 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const { Storage } = require('./src/storage');
 const { register } = require('./src/commands');
 const { startPresence } = require('./src/presence');
+const { VoiceTracker } = require('./src/voice');
 const trigger = require('./src/commands/trigger');
 
 function loadEnv() {
@@ -61,10 +62,14 @@ async function main() {
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.MessageContent,
+      GatewayIntentBits.GuildVoiceStates,
     ],
   });
 
-  register(client, storage);
+  const voiceTracker = new VoiceTracker(storage);
+  voiceTracker.start(client);
+
+  register(client, storage, voiceTracker);
   trigger.register(client);
 
   if (trigger.SHEEP_IMAGE_URL) {
