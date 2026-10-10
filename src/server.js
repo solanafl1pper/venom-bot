@@ -14,6 +14,8 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
 };
 
+const duelRooms = new Map();
+
 function createServer(storage) {
   const publicDir = path.join(__dirname, '..', 'public');
 
@@ -107,6 +109,79 @@ function createServer(storage) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: err.message }));
         }
+      });
+      return;
+    }
+
+    // 5. API: Duel sync (multiplayer live scores)
+    if (pathname === '/api/duel/sync' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (chunk) => (body += chunk));
+      req.on('end', () => {
+        try {
+          const { roomId = 'main', userId, username, avatar, score = 0, maxTile = 2, isGameOver = false } = JSON.parse(body || '{}');
+          if (!userId) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'userId required' }));
+            return;
+          }
+
+          if (!duelRooms.has(roomId)) duelRooms.set(roomId, new Map());
+          const room = duelRooms.get(roomId);
+          const now = Date.now();
+
+          // Очистка старых участников (> 90 сек неактивны)
+          for (const [uid, p] of room.entries()) {
+            if (now - p.lastSeen > 90_000 && uid !== userId) room.delete(uid);
+          }
+
+          room.set(userId, {
+            userId,
+            username: username || 'Игрок',
+            avatar: avatar || null,
+            score,
+            maxTile,
+            isGameOver,
+            lastSeen: now,
+          });
+
+          const players = Array.from(room.values());
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, players }));
+        } catch (err) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+      return;
+    }
+
+    // 6. API: Duel state
+    if (pathname === '/api/duel/state' && req.method === 'GET') {
+      const roomId = url.searchParams.get('roomId') || 'main';
+      const room = duelRooms.get(roomId);
+      const players = room ? Array.from(room.values()) : [];
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ players }));
+      return;
+    }
+
+    // 7. API: Duel reset (новые раунды)
+    if (pathname === '/api/duel/reset' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (chunk) => (body += chunk));
+      req.on('end', () => {
+        const { roomId = 'main' } = JSON.parse(body || '{}');
+        const room = duelRooms.get(roomId);
+        if (room) {
+          for (const p of room.values()) {
+            p.score = 0;
+            p.maxTile = 2;
+            p.isGameOver = false;
+          }
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
       });
       return;
     }

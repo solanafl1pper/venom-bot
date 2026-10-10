@@ -5,12 +5,19 @@ const SIZE = 4;
 
 let discordSdk = null;
 let currentUser = {
-  id: 'guest',
+  id: 'guest_' + Math.floor(Math.random() * 10000),
   username: 'Игрок',
-  avatar: null,
+  avatar: 'https://cdn.discordapp.com/embed/avatars/0.png',
 };
 
-let board = [];
+let roomId = 'default_room';
+let gameMode = 'solo'; // 'solo' | 'duel'
+let duelPollTimer = null;
+
+let board = []; // 4x4 array of tile objects: { id, value, r, c } or null
+let tileIdSeq = 1;
+const tileElements = new Map(); // id -> DOMElement
+
 let score = 0;
 let bestScore = 0;
 let isGameOver = false;
@@ -24,17 +31,54 @@ const btnNewGame = document.getElementById('btnNewGame');
 const btnMenu = document.getElementById('btnMenu');
 const btnOverlayRestart = document.getElementById('btnOverlayRestart');
 const btnCloseMenu = document.getElementById('btnCloseMenu');
+const btnThemeToggle = document.getElementById('btnThemeToggle');
+const themeIconEl = document.getElementById('themeIcon');
+
+const btnModeSolo = document.getElementById('btnModeSolo');
+const btnModeDuel = document.getElementById('btnModeDuel');
+const duelBar = document.getElementById('duelBar');
+const myDuelAvatar = document.getElementById('myDuelAvatar');
+const myDuelName = document.getElementById('myDuelName');
+const myDuelScore = document.getElementById('myDuelScore');
+const oppDuelAvatar = document.getElementById('oppDuelAvatar');
+const oppDuelName = document.getElementById('oppDuelName');
+const oppDuelScore = document.getElementById('oppDuelScore');
+const duelStatusText = document.getElementById('duelStatusText');
 
 const gameOverOverlay = document.getElementById('gameOverOverlay');
 const overlayScoreEl = document.getElementById('overlayScore');
 const menuOverlay = document.getElementById('menuOverlay');
-
 const userNameEl = document.getElementById('userName');
 const userAvatarEl = document.getElementById('userAvatar');
 const userStatusEl = document.getElementById('userStatus');
 
 /* ========================================================
-   1. Discord Embedded App SDK Integration
+   1. Theme Management
+======================================================== */
+function initTheme() {
+  const saved = localStorage.getItem('venom_2048_theme') || 'light';
+  applyTheme(saved);
+
+  btnThemeToggle.addEventListener('click', () => {
+    const isDark = document.body.classList.contains('dark-theme');
+    const newTheme = isDark ? 'light' : 'dark';
+    applyTheme(newTheme);
+    localStorage.setItem('venom_2048_theme', newTheme);
+  });
+}
+
+function applyTheme(theme) {
+  if (theme === 'dark') {
+    document.body.classList.add('dark-theme');
+    themeIconEl.textContent = '☀️';
+  } else {
+    document.body.classList.remove('dark-theme');
+    themeIconEl.textContent = '🌙';
+  }
+}
+
+/* ========================================================
+   2. Discord SDK & Score Sync
 ======================================================== */
 async function initDiscord() {
   try {
@@ -42,7 +86,10 @@ async function initDiscord() {
     discordSdk = new DiscordSDK(CLIENT_ID);
     await discordSdk.ready();
 
-    // Авторизация в Discord
+    if (discordSdk.channelId) {
+      roomId = discordSdk.channelId;
+    }
+
     const { code } = await discordSdk.commands.authorize({
       client_id: CLIENT_ID,
       response_type: 'code',
@@ -73,25 +120,23 @@ async function initDiscord() {
     updateUserUI();
     fetchUserBestScore();
   } catch (err) {
-    console.log('[Discord SDK] Работаем в обычном веб-режиме:', err.message);
+    console.log('[Discord SDK] Локальный/веб режим:', err.message);
     if (userStatusEl) userStatusEl.textContent = 'Веб-версия';
-    const saved = localStorage.getItem('2048_best');
+    updateUserUI();
+    const saved = localStorage.getItem('venom_2048_best');
     if (saved) setBestScore(parseInt(saved, 10));
   }
 }
 
 function updateUserUI() {
   if (userNameEl) userNameEl.textContent = currentUser.username;
-  if (currentUser.avatar && userAvatarEl) {
-    userAvatarEl.src = currentUser.avatar;
-  }
-  if (userStatusEl) {
-    userStatusEl.textContent = currentUser.id === 'guest' ? 'Гость' : 'Discord Activity';
-  }
+  if (userAvatarEl) userAvatarEl.src = currentUser.avatar;
+  if (myDuelAvatar) myDuelAvatar.src = currentUser.avatar;
+  if (myDuelName) myDuelName.textContent = currentUser.username;
 }
 
 async function fetchUserBestScore() {
-  if (currentUser.id === 'guest') return;
+  if (currentUser.id.startsWith('guest_')) return;
   try {
     const res = await fetch(`/api/score?userId=${currentUser.id}`);
     if (res.ok) {
@@ -104,8 +149,8 @@ async function fetchUserBestScore() {
 }
 
 async function syncBestScoreWithBot(newScore) {
-  if (currentUser.id === 'guest') {
-    localStorage.setItem('2048_best', String(newScore));
+  if (currentUser.id.startsWith('guest_')) {
+    localStorage.setItem('venom_2048_best', String(newScore));
     return;
   }
 
@@ -119,8 +164,8 @@ async function syncBestScoreWithBot(newScore) {
         score: newScore,
       }),
     });
-  } catch (err) {
-    console.error('Ошибка синхронизации очков:', err);
+  } catch {
+    /* оффлайн */
   }
 }
 
@@ -130,33 +175,112 @@ function setBestScore(val) {
 }
 
 /* ========================================================
-   2. 2048 Engine
+   3. Multiplayer Duel Mode
 ======================================================== */
-function initGame() {
-  board = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
-  score = 0;
-  isGameOver = false;
-  currentScoreEl.textContent = '0';
-  gameOverOverlay.classList.add('hidden');
-  menuOverlay.classList.add('hidden');
+function setupModes() {
+  btnModeSolo.addEventListener('click', () => {
+    gameMode = 'solo';
+    btnModeSolo.classList.add('active');
+    btnModeDuel.classList.remove('active');
+    duelBar.classList.add('hidden');
+    stopDuelPolling();
+  });
 
-  spawnTile();
-  spawnTile();
-  renderBoard();
+  btnModeDuel.addEventListener('click', () => {
+    gameMode = 'duel';
+    btnModeDuel.classList.add('active');
+    btnModeSolo.classList.remove('active');
+    duelBar.classList.remove('hidden');
+    startDuelPolling();
+  });
 }
 
-function spawnTile() {
-  const empty = [];
+function startDuelPolling() {
+  stopDuelPolling();
+  syncDuelState();
+  duelPollTimer = setInterval(syncDuelState, 1500);
+}
+
+function stopDuelPolling() {
+  if (duelPollTimer) clearInterval(duelPollTimer);
+  duelPollTimer = null;
+}
+
+async function syncDuelState() {
+  if (gameMode !== 'duel') return;
+
+  const maxTile = getMaxTile();
+  try {
+    const res = await fetch('/api/duel/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        roomId,
+        userId: currentUser.id,
+        username: currentUser.username,
+        avatar: currentUser.avatar,
+        score,
+        maxTile,
+        isGameOver,
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      updateDuelUI(data.players || []);
+    }
+  } catch {
+    /* оффлайн */
+  }
+}
+
+function updateDuelUI(players) {
+  myDuelScore.textContent = score;
+
+  const opponents = players.filter((p) => p.userId !== currentUser.id);
+
+  if (opponents.length === 0) {
+    oppDuelName.textContent = 'Ждём друга...';
+    oppDuelScore.textContent = '0';
+    oppDuelAvatar.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2380848e"%3E%3Cpath d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/%3E%3C/svg%3E';
+    duelStatusText.textContent = 'Один в войсе';
+    return;
+  }
+
+  // Берём лучшего соперника
+  opponents.sort((a, b) => b.score - a.score);
+  const opp = opponents[0];
+
+  oppDuelName.textContent = opp.username;
+  oppDuelScore.textContent = opp.score;
+  if (opp.avatar) oppDuelAvatar.src = opp.avatar;
+
+  if (score > opp.score) {
+    duelStatusText.textContent = 'Ты ведёшь! 🔥';
+  } else if (score < opp.score) {
+    duelStatusText.textContent = 'Догоняй! ⚡';
+  } else {
+    duelStatusText.textContent = 'Ничья! 🤝';
+  }
+
+  if (opp.isGameOver && !isGameOver) {
+    duelStatusText.textContent = `${opp.username} выбыл! 💥`;
+  }
+}
+
+function getMaxTile() {
+  let max = 0;
   for (let r = 0; r < SIZE; r += 1) {
     for (let c = 0; c < SIZE; c += 1) {
-      if (board[r][c] === 0) empty.push({ r, c });
+      if (board[r][c] && board[r][c].value > max) max = board[r][c].value;
     }
   }
-  if (!empty.length) return;
-  const { r, c } = empty[Math.floor(Math.random() * empty.length)];
-  board[r][c] = Math.random() < 0.9 ? 2 : 4;
+  return max;
 }
 
+/* ========================================================
+   4. 2048 Engine With Real Sliding Animations
+======================================================= */
 function getCellMetrics() {
   const rect = boardEl.getBoundingClientRect();
   const isMobile = window.innerWidth <= 400;
@@ -166,105 +290,175 @@ function getCellMetrics() {
   return { gap, padding, cellSize };
 }
 
-function renderBoard(mergedCoords = []) {
+function initGame() {
+  // Очищаем DOM и состояние
   tileContainer.innerHTML = '';
-  const { gap, cellSize } = getCellMetrics();
+  tileElements.clear();
+  board = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
 
-  for (let r = 0; r < SIZE; r += 1) {
-    for (let c = 0; c < SIZE; c += 1) {
-      const val = board[r][c];
-      if (val === 0) continue;
+  score = 0;
+  isGameOver = false;
+  currentScoreEl.textContent = '0';
+  gameOverOverlay.classList.add('hidden');
+  menuOverlay.classList.add('hidden');
 
-      const tile = document.createElement('div');
-      const cls = val <= 2048 ? `tile-${val}` : 'tile-super';
-      tile.className = `tile ${cls}`;
-      if (mergedCoords.some((m) => m.r === r && m.c === c)) {
-        tile.classList.add('merged');
-      }
+  spawnTile();
+  spawnTile();
 
-      const x = c * (cellSize + gap);
-      const y = r * (cellSize + gap);
-      tile.style.transform = `translate(${x}px, ${y}px)`;
-      tile.style.width = `${cellSize}px`;
-      tile.style.height = `${cellSize}px`;
-      tile.textContent = val;
-      tileContainer.appendChild(tile);
-    }
-  }
+  if (gameMode === 'duel') syncDuelState();
 }
 
-function moveLine(line) {
-  const filtered = line.filter((v) => v !== 0);
-  const out = [];
-  let gained = 0;
-  const merges = [];
-
-  for (let i = 0; i < filtered.length; i += 1) {
-    if (i + 1 < filtered.length && filtered[i] === filtered[i + 1]) {
-      const mergedVal = filtered[i] * 2;
-      out.push(mergedVal);
-      gained += mergedVal;
-      merges.push(out.length - 1);
-      i += 1;
-    } else {
-      out.push(filtered[i]);
+function spawnTile() {
+  const empty = [];
+  for (let r = 0; r < SIZE; r += 1) {
+    for (let c = 0; c < SIZE; c += 1) {
+      if (!board[r][c]) empty.push({ r, c });
     }
   }
-  while (out.length < SIZE) out.push(0);
-  return { line: out, gained, merges };
+  if (!empty.length) return null;
+
+  const { r, c } = empty[Math.floor(Math.random() * empty.length)];
+  const value = Math.random() < 0.9 ? 2 : 4;
+  const tile = {
+    id: tileIdSeq++,
+    value,
+    r,
+    c,
+  };
+
+  board[r][c] = tile;
+  createTileDOM(tile, true);
+  return tile;
+}
+
+function createTileDOM(tile, isNew = false) {
+  const { gap, cellSize } = getCellMetrics();
+  const el = document.createElement('div');
+  const cls = tile.value <= 2048 ? `tile-${tile.value}` : 'tile-super';
+  el.className = `tile ${cls} ${isNew ? 'new-tile' : ''}`;
+
+  const x = tile.c * (cellSize + gap);
+  const y = tile.r * (cellSize + gap);
+  el.style.transform = `translate(${x}px, ${y}px)`;
+  el.style.width = `${cellSize}px`;
+  el.style.height = `${cellSize}px`;
+  el.textContent = tile.value;
+
+  tileContainer.appendChild(el);
+  tileElements.set(tile.id, el);
+  return el;
+}
+
+function updateTilePosition(tile) {
+  const el = tileElements.get(tile.id);
+  if (!el) return;
+
+  const { gap, cellSize } = getCellMetrics();
+  const x = tile.c * (cellSize + gap);
+  const y = tile.r * (cellSize + gap);
+  el.style.transform = `translate(${x}px, ${y}px)`;
+}
+
+function updateTileValue(tile) {
+  const el = tileElements.get(tile.id);
+  if (!el) return;
+
+  el.className = `tile ${tile.value <= 2048 ? `tile-${tile.value}` : 'tile-super'} merged-tile`;
+  el.textContent = tile.value;
+}
+
+function removeTileDOM(tileId) {
+  const el = tileElements.get(tileId);
+  if (el) {
+    el.remove();
+    tileElements.delete(tileId);
+  }
 }
 
 function move(dir) {
   if (isGameOver) return;
-  let changed = false;
-  let gained = 0;
-  const mergedCoords = [];
 
-  if (dir === 'left') {
-    for (let r = 0; r < SIZE; r += 1) {
-      const res = moveLine(board[r]);
-      gained += res.gained;
-      if (res.line.some((v, c) => v !== board[r][c])) changed = true;
-      board[r] = res.line;
-      res.merges.forEach((c) => mergedCoords.push({ r, c }));
-    }
-  } else if (dir === 'right') {
-    for (let r = 0; r < SIZE; r += 1) {
-      const reversed = board[r].slice().reverse();
-      const res = moveLine(reversed);
-      gained += res.gained;
-      const finalLine = res.line.reverse();
-      if (finalLine.some((v, c) => v !== board[r][c])) changed = true;
-      board[r] = finalLine;
-      res.merges.forEach((c) => mergedCoords.push({ r, c: SIZE - 1 - c }));
-    }
-  } else if (dir === 'up') {
-    for (let c = 0; c < SIZE; c += 1) {
-      const col = [board[0][c], board[1][c], board[2][c], board[3][c]];
-      const res = moveLine(col);
-      gained += res.gained;
-      for (let r = 0; r < SIZE; r += 1) {
-        if (board[r][c] !== res.line[r]) changed = true;
-        board[r][c] = res.line[r];
+  const vectors = {
+    up: { r: -1, c: 0 },
+    down: { r: 1, c: 0 },
+    left: { r: 0, c: -1 },
+    right: { r: 0, c: 1 },
+  };
+  const vector = vectors[dir];
+  if (!vector) return;
+
+  const rOrder = vector.r === 1 ? [3, 2, 1, 0] : [0, 1, 2, 3];
+  const cOrder = vector.c === 1 ? [3, 2, 1, 0] : [0, 1, 2, 3];
+
+  let moved = false;
+  let scoreGained = 0;
+  const mergedMap = Array.from({ length: SIZE }, () => Array(SIZE).fill(false));
+  const tilesToRemove = [];
+
+  for (const r of rOrder) {
+    for (const c of cOrder) {
+      const tile = board[r][c];
+      if (!tile) continue;
+
+      let nextR = r;
+      let nextC = c;
+
+      // Ищем максимально далёкую клетку
+      while (true) {
+        const testR = nextR + vector.r;
+        const testC = nextC + vector.c;
+        if (testR < 0 || testR >= SIZE || testC < 0 || testC >= SIZE) break;
+
+        const neighbor = board[testR][testC];
+        if (!neighbor) {
+          nextR = testR;
+          nextC = testC;
+        } else if (neighbor.value === tile.value && !mergedMap[testR][testC]) {
+          // Слияние!
+          nextR = testR;
+          nextC = testC;
+          break;
+        } else {
+          break;
+        }
       }
-      res.merges.forEach((r) => mergedCoords.push({ r, c }));
-    }
-  } else if (dir === 'down') {
-    for (let c = 0; c < SIZE; c += 1) {
-      const col = [board[3][c], board[2][c], board[1][c], board[0][c]];
-      const res = moveLine(col);
-      gained += res.gained;
-      const finalCol = res.line.reverse();
-      for (let r = 0; r < SIZE; r += 1) {
-        if (board[r][c] !== finalCol[r]) changed = true;
-        board[r][c] = finalCol[r];
+
+      if (nextR !== r || nextC !== c) {
+        moved = true;
+        const targetTile = board[nextR][nextC];
+
+        if (targetTile && targetTile.value === tile.value) {
+          // Сливаемся
+          mergedMap[nextR][nextC] = true;
+          board[r][c] = null;
+
+          tile.r = nextR;
+          tile.c = nextC;
+          updateTilePosition(tile);
+
+          // Обновляем целевую плитку
+          targetTile.value *= 2;
+          scoreGained += targetTile.value;
+
+          tilesToRemove.push(tile.id);
+          setTimeout(() => {
+            removeTileDOM(tile.id);
+            updateTileValue(targetTile);
+          }, 115);
+        } else {
+          // Просто перемещение
+          board[r][c] = null;
+          board[nextR][nextC] = tile;
+          tile.r = nextR;
+          tile.c = nextC;
+          updateTilePosition(tile);
+        }
       }
-      res.merges.forEach((r) => mergedCoords.push({ r: SIZE - 1 - r, c }));
     }
   }
 
-  if (changed) {
-    score += gained;
+  if (moved) {
+    score += scoreGained;
     currentScoreEl.textContent = score;
 
     if (score > bestScore) {
@@ -272,22 +466,28 @@ function move(dir) {
       syncBestScoreWithBot(score);
     }
 
-    spawnTile();
-    renderBoard(mergedCoords);
-
-    if (checkGameOver()) {
-      isGameOver = true;
-      showGameOver();
+    if (gameMode === 'duel') {
+      syncDuelState();
     }
+
+    setTimeout(() => {
+      spawnTile();
+      if (checkGameOver()) {
+        isGameOver = true;
+        showGameOver();
+        if (gameMode === 'duel') syncDuelState();
+      }
+    }, 115);
   }
 }
 
 function checkGameOver() {
   for (let r = 0; r < SIZE; r += 1) {
     for (let c = 0; c < SIZE; c += 1) {
-      if (board[r][c] === 0) return false;
-      if (c + 1 < SIZE && board[r][c] === board[r][c + 1]) return false;
-      if (r + 1 < SIZE && board[r][c] === board[r + 1][c]) return false;
+      if (!board[r][c]) return false;
+      const val = board[r][c].value;
+      if (c + 1 < SIZE && board[r][c + 1] && board[r][c + 1].value === val) return false;
+      if (r + 1 < SIZE && board[r + 1][c] && board[r + 1][c].value === val) return false;
     }
   }
   return true;
@@ -299,7 +499,7 @@ function showGameOver() {
 }
 
 /* ========================================================
-   3. Input Controls (Keyboard + Touch Swipes)
+   5. Input Controls (Keyboard + Touch Swipes)
 ======================================================== */
 window.addEventListener('keydown', (e) => {
   switch (e.key) {
@@ -388,8 +588,17 @@ btnCloseMenu.addEventListener('click', () => {
   menuOverlay.classList.add('hidden');
 });
 
-window.addEventListener('resize', () => renderBoard());
+window.addEventListener('resize', () => {
+  // Пересчитываем координаты плиток при изменении размера окна
+  for (let r = 0; r < SIZE; r += 1) {
+    for (let c = 0; c < SIZE; c += 1) {
+      if (board[r][c]) updateTilePosition(board[r][c]);
+    }
+  }
+});
 
-// Старт
+// Запуск игры
+initTheme();
+setupModes();
 initDiscord();
 initGame();

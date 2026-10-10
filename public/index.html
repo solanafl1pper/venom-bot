@@ -3,17 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>2048</title>
+  <title>VENOM 2048</title>
   <link rel="stylesheet" href="./style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="game-wrapper">
-    <!-- Шапка: 2048 слева, SCORE и BEST справа -->
+    <!-- Верхний бар: логотип, тема, статистика -->
     <header class="header">
-      <div class="logo-box">2048</div>
+      <div class="header-left">
+        <div class="brand-box">
+          <span class="brand-title">VENOM</span>
+          <span class="brand-number">2048</span>
+        </div>
+        <button class="theme-toggle-btn" id="btnThemeToggle" title="Сменить тему">
+          <span id="themeIcon">🌙</span>
+        </button>
+      </div>
+
       <div class="scores-box">
         <div class="score-card">
           <div class="score-title">SCORE</div>
@@ -25,6 +34,36 @@
         </div>
       </div>
     </header>
+
+    <!-- Переключатель режима: Соло / Дуэль -->
+    <div class="mode-bar">
+      <button class="mode-btn active" id="btnModeSolo">🕹️ Соло</button>
+      <button class="mode-btn" id="btnModeDuel">⚔️ Дуэль</button>
+    </div>
+
+    <!-- Панель дуэли (скрыта в режиме соло) -->
+    <div class="duel-bar hidden" id="duelBar">
+      <div class="duel-player me">
+        <img class="duel-avatar" id="myDuelAvatar" src="" alt="me">
+        <div class="duel-meta">
+          <span class="duel-name" id="myDuelName">Ты</span>
+          <span class="duel-score" id="myDuelScore">0</span>
+        </div>
+      </div>
+
+      <div class="duel-versus">
+        <span class="vs-badge">VS</span>
+        <span class="duel-status-text" id="duelStatusText">В поисках...</span>
+      </div>
+
+      <div class="duel-player opponent">
+        <img class="duel-avatar" id="oppDuelAvatar" src="" alt="opp">
+        <div class="duel-meta">
+          <span class="duel-name" id="oppDuelName">Ожидание...</span>
+          <span class="duel-score" id="oppDuelScore">0</span>
+        </div>
+      </div>
+    </div>
 
     <!-- Игровое поле 4х4 -->
     <main class="board-container">
@@ -39,9 +78,9 @@
       <!-- Оверлей Game Over -->
       <div class="overlay hidden" id="gameOverOverlay">
         <div class="overlay-box">
-          <h2 class="overlay-title">Game Over!</h2>
+          <h2 class="overlay-title" id="overlayTitle">Game Over!</h2>
           <p class="overlay-score">Счёт: <span id="overlayScore">0</span></p>
-          <button class="btn btn-outline" id="btnOverlayRestart">TRY AGAIN</button>
+          <button class="btn btn-action" id="btnOverlayRestart">TRY AGAIN</button>
         </div>
       </div>
 
@@ -49,27 +88,27 @@
       <div class="overlay hidden" id="menuOverlay">
         <div class="overlay-box menu-box">
           <div class="user-info">
-            <img class="user-avatar" id="userAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23bbada0'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E" alt="avatar">
+            <img class="user-avatar" id="userAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%235865f2'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E" alt="avatar">
             <div class="user-text">
               <div class="user-name" id="userName">Игрок</div>
               <div class="user-status" id="userStatus">Discord Activity</div>
             </div>
           </div>
-          <p class="menu-hint">Очки автоматически сохраняются в боте и видны в команде <b>/профиль</b>.</p>
-          <button class="btn btn-outline" id="btnCloseMenu">CONTINUE</button>
+          <p class="menu-hint">Очки сохраняются в боте и видны в <b>/профиль</b>. В режиме <b>Дуэль</b> соревнуйся с друзьями из войса в реальном времени!</p>
+          <button class="btn btn-action" id="btnCloseMenu">ПРОДОЛЖИТЬ</button>
         </div>
       </div>
     </main>
 
     <!-- Кнопки под полем: NEW GAME и MENU -->
     <div class="controls-row">
-      <button class="btn btn-outline" id="btnNewGame">NEW GAME</button>
-      <button class="btn btn-outline" id="btnMenu">MENU</button>
+      <button class="btn btn-action" id="btnNewGame">НОВАЯ ИГРА</button>
+      <button class="btn btn-action" id="btnMenu">МЕНЮ</button>
     </div>
 
     <!-- Подсказка управления -->
     <footer class="footer">
-      Arrows / WASD to slide · same numbers merge
+      Стрелки / WASD / свайпы пальцем · Одинаковые цифры сливаются
     </footer>
   </div>
 

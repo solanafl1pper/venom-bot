@@ -1,3 +1,45 @@
+:root {
+  --bg-color: #FAF8EF;
+  --text-main: #776e65;
+  --text-muted: #8f7a66;
+  --card-bg: #bbada0;
+  --card-label: #eee4da;
+  --board-bg: #bbada0;
+  --cell-bg: #cdc1b4;
+  --brand-bg: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --brand-shadow: 0 4px 0 #047857;
+  --btn-bg: #fbf8f3;
+  --btn-border: #dcd3c7;
+  --btn-shadow: 0 2px 0 #d0c5b7;
+  --btn-hover: #ede0c8;
+  --overlay-bg: rgba(250, 248, 239, 0.92);
+  --modal-bg: #ffffff;
+  --modal-border: #eee4da;
+  --duel-bg: #f3ede6;
+  --duel-border: #d5cbc0;
+}
+
+body.dark-theme {
+  --bg-color: #1e1f22;
+  --text-main: #f2f3f5;
+  --text-muted: #949ba4;
+  --card-bg: #2b2d31;
+  --card-label: #80848e;
+  --board-bg: #2b2d31;
+  --cell-bg: #383a40;
+  --brand-bg: linear-gradient(135deg, #5865f2 0%, #4752c4 100%);
+  --brand-shadow: 0 4px 0 #3c45a5;
+  --btn-bg: #313338;
+  --btn-border: #3f4147;
+  --btn-shadow: 0 2px 0 #232428;
+  --btn-hover: #383a40;
+  --overlay-bg: rgba(30, 31, 34, 0.92);
+  --modal-bg: #2b2d31;
+  --modal-border: #383a40;
+  --duel-bg: #27292d;
+  --duel-border: #383a40;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -7,15 +49,16 @@
 }
 
 body {
-  background-color: #FAF8EF;
-  color: #776e65;
+  background-color: var(--bg-color);
+  color: var(--text-main);
   font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 16px;
+  padding: 14px;
   overflow: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .game-wrapper {
@@ -32,22 +75,62 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
-.logo-box {
-  background: #edc22e;
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-box {
+  background: var(--brand-bg);
   color: #ffffff;
-  font-size: 38px;
-  font-weight: 900;
   border-radius: 10px;
-  padding: 8px 20px;
-  line-height: 1.1;
-  letter-spacing: 0.5px;
-  box-shadow: 0 4px 0 #cc9b1c;
+  padding: 6px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.05;
+  box-shadow: var(--brand-shadow);
+}
+
+.brand-title {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  opacity: 0.9;
+}
+
+.brand-number {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.theme-toggle-btn {
+  background: var(--btn-bg);
+  border: 2px solid var(--btn-border);
+  box-shadow: var(--btn-shadow);
+  color: var(--text-main);
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.theme-toggle-btn:active {
+  transform: translateY(2px);
+  box-shadow: none;
 }
 
 .scores-box {
@@ -56,17 +139,17 @@ body {
 }
 
 .score-card {
-  background: #bbada0;
+  background: var(--card-bg);
   border-radius: 8px;
-  padding: 6px 16px;
-  min-width: 76px;
+  padding: 6px 14px;
+  min-width: 72px;
   text-align: center;
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .score-title {
-  color: #eee4da;
-  font-size: 11px;
+  color: var(--card-label);
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 1px;
   margin-bottom: 2px;
@@ -74,9 +157,123 @@ body {
 
 .score-num {
   color: #ffffff;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 900;
   line-height: 1.1;
+}
+
+/* Mode Bar */
+.mode-bar {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mode-btn {
+  flex: 1;
+  background: var(--btn-bg);
+  border: 2px solid var(--btn-border);
+  color: var(--text-muted);
+  border-radius: 8px;
+  padding: 6px 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mode-btn.active {
+  background: var(--brand-bg);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Duel Bar */
+.duel-bar {
+  width: 100%;
+  background: var(--duel-bg);
+  border: 2px solid var(--duel-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.duel-bar.hidden {
+  display: none;
+}
+
+.duel-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 40%;
+}
+
+.duel-player.opponent {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.duel-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #5865f2;
+}
+
+.duel-meta {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.duel-name {
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.duel-score {
+  font-size: 16px;
+  font-weight: 900;
+  color: #10b981;
+}
+
+.opponent .duel-score {
+  color: #f59e0b;
+}
+
+.duel-versus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.vs-badge {
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 900;
+  border-radius: 6px;
+  padding: 2px 6px;
+  letter-spacing: 1px;
+}
+
+.duel-status-text {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
 /* Board */
@@ -88,7 +285,7 @@ body {
 .board {
   width: 100%;
   aspect-ratio: 1 / 1;
-  background: #bbada0;
+  background: var(--board-bg);
   border-radius: 12px;
   padding: 12px;
   display: grid;
@@ -97,11 +294,11 @@ body {
   gap: 12px;
   position: relative;
   touch-action: none;
-  box-shadow: 0 6px 14px rgba(187, 173, 160, 0.3);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
 }
 
 .grid-cell {
-  background: #cdc1b4;
+  background: var(--cell-bg);
   border-radius: 8px;
   width: 100%;
   height: 100%;
@@ -116,6 +313,7 @@ body {
   pointer-events: none;
 }
 
+/* Плитки с плавной анимацией скольжения */
 .tile {
   position: absolute;
   border-radius: 8px;
@@ -124,15 +322,20 @@ body {
   align-items: center;
   font-weight: 900;
   font-size: 38px;
-  transition: transform 0.1s ease-in-out;
-  animation: appear 0.15s ease-out;
+  line-height: 1;
+  transition: transform 115ms cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
 }
 
-.tile.merged {
-  animation: pop 0.18s ease-in-out;
+.tile.new-tile {
+  animation: appear 140ms ease-out;
 }
 
-/* Tile Colors exactly matching 2048 screenshot */
+.tile.merged-tile {
+  animation: pop 160ms ease-in-out;
+}
+
+/* Палитра плиток (светлая тема) */
 .tile-2 { background: #eee4da; color: #776e65; }
 .tile-4 { background: #ede0c8; color: #776e65; }
 .tile-8 { background: #f2b179; color: #ffffff; }
@@ -144,7 +347,21 @@ body {
 .tile-512 { background: #edc850; color: #ffffff; font-size: 30px; box-shadow: 0 0 14px rgba(237, 200, 80, 0.6); }
 .tile-1024 { background: #edc53f; color: #ffffff; font-size: 24px; box-shadow: 0 0 16px rgba(237, 197, 63, 0.7); }
 .tile-2048 { background: #edc22e; color: #ffffff; font-size: 24px; box-shadow: 0 0 20px rgba(237, 194, 46, 0.85); }
-.tile-super { background: #3c3a32; color: #ffffff; font-size: 22px; }
+.tile-super { background: #10b981; color: #ffffff; font-size: 22px; }
+
+/* Палитра плиток (тёмная тема) */
+body.dark-theme .tile-2 { background: #3b3d44; color: #f2f3f5; }
+body.dark-theme .tile-4 { background: #464850; color: #f2f3f5; }
+body.dark-theme .tile-8 { background: #ea7a32; color: #ffffff; }
+body.dark-theme .tile-16 { background: #e85934; color: #ffffff; font-size: 34px; }
+body.dark-theme .tile-32 { background: #e04434; color: #ffffff; font-size: 34px; }
+body.dark-theme .tile-64 { background: #d12e2e; color: #ffffff; font-size: 34px; }
+body.dark-theme .tile-128 { background: #e5a420; color: #ffffff; font-size: 30px; box-shadow: 0 0 10px rgba(229, 164, 32, 0.5); }
+body.dark-theme .tile-256 { background: #d89617; color: #ffffff; font-size: 30px; box-shadow: 0 0 12px rgba(216, 150, 23, 0.6); }
+body.dark-theme .tile-512 { background: #cc870f; color: #ffffff; font-size: 30px; box-shadow: 0 0 14px rgba(204, 135, 15, 0.7); }
+body.dark-theme .tile-1024 { background: #bf7808; color: #ffffff; font-size: 24px; box-shadow: 0 0 16px rgba(191, 120, 8, 0.8); }
+body.dark-theme .tile-2048 { background: #5865f2; color: #ffffff; font-size: 24px; box-shadow: 0 0 20px rgba(88, 101, 242, 0.9); }
+body.dark-theme .tile-super { background: #23a55a; color: #ffffff; font-size: 22px; }
 
 @keyframes appear {
   0% { opacity: 0; transform: scale(0); }
@@ -153,7 +370,7 @@ body {
 
 @keyframes pop {
   0% { transform: scale(0.9); }
-  50% { transform: scale(1.12); }
+  50% { transform: scale(1.15); }
   100% { transform: scale(1); }
 }
 
@@ -161,7 +378,7 @@ body {
 .controls-row {
   display: flex;
   gap: 12px;
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
 .btn {
@@ -169,36 +386,35 @@ body {
   cursor: pointer;
   border-radius: 8px;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 13px;
   letter-spacing: 0.8px;
-  padding: 10px 22px;
+  padding: 9px 20px;
   transition: all 0.15s ease;
   outline: none;
 }
 
-.btn-outline {
-  background: #fbf8f3;
-  color: #776e65;
-  border: 2px solid #dcd3c7;
-  box-shadow: 0 2px 0 #d0c5b7;
+.btn-action {
+  background: var(--btn-bg);
+  color: var(--text-main);
+  border: 2px solid var(--btn-border);
+  box-shadow: var(--btn-shadow);
 }
 
-.btn-outline:hover {
-  background: #ede0c8;
-  border-color: #cbbdb0;
+.btn-action:hover {
+  background: var(--btn-hover);
 }
 
-.btn-outline:active {
+.btn-action:active {
   transform: translateY(2px);
   box-shadow: none;
 }
 
 /* Footer caption */
 .footer {
-  margin-top: 16px;
-  font-size: 13px;
+  margin-top: 12px;
+  font-size: 12px;
   font-weight: 700;
-  color: #8f7a66;
+  color: var(--text-muted);
   text-align: center;
 }
 
@@ -206,12 +422,12 @@ body {
 .overlay {
   position: absolute;
   inset: 0;
-  background: rgba(250, 248, 239, 0.88);
+  background: var(--overlay-bg);
   border-radius: 12px;
   display: flex;
   justify-content: center;
   align-items: center;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(3px);
   z-index: 20;
   animation: fadeIn 0.2s ease-out;
 }
@@ -221,31 +437,31 @@ body {
 }
 
 .overlay-box {
-  background: #ffffff;
+  background: var(--modal-bg);
   border-radius: 12px;
-  padding: 24px 28px;
+  padding: 22px 26px;
   text-align: center;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
-  border: 2px solid #eee4da;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  border: 2px solid var(--modal-border);
   max-width: 86%;
 }
 
 .overlay-title {
-  color: #776e65;
-  font-size: 28px;
+  color: var(--text-main);
+  font-size: 26px;
   font-weight: 900;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .overlay-score {
-  color: #8f7a66;
-  font-size: 16px;
+  color: var(--text-muted);
+  font-size: 15px;
   font-weight: 700;
   margin-bottom: 16px;
 }
 
 .overlay-score span {
-  color: #edc22e;
+  color: #10b981;
   font-size: 22px;
   font-weight: 900;
 }
@@ -260,33 +476,33 @@ body {
   gap: 12px;
   margin-bottom: 12px;
   padding-bottom: 12px;
-  border-bottom: 2px solid #f2e9e1;
+  border-bottom: 2px solid var(--modal-border);
 }
 
 .user-avatar {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: 2px solid #edc22e;
+  border: 2px solid #10b981;
   object-fit: cover;
 }
 
 .user-name {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 900;
-  color: #776e65;
+  color: var(--text-main);
 }
 
 .user-status {
   font-size: 12px;
   font-weight: 700;
-  color: #8f7a66;
+  color: var(--text-muted);
 }
 
 .menu-hint {
   font-size: 13px;
   line-height: 1.4;
-  color: #8f7a66;
+  color: var(--text-muted);
   margin-bottom: 16px;
 }
 
@@ -297,17 +513,6 @@ body {
 
 /* Small screen adaptations */
 @media (max-width: 400px) {
-  .logo-box {
-    font-size: 30px;
-    padding: 6px 16px;
-  }
-  .score-num {
-    font-size: 18px;
-  }
-  .score-card {
-    padding: 4px 12px;
-    min-width: 62px;
-  }
   .board {
     padding: 8px;
     gap: 8px;
@@ -320,5 +525,12 @@ body {
   }
   .tile {
     font-size: 28px;
+  }
+  .score-card {
+    padding: 4px 10px;
+    min-width: 60px;
+  }
+  .score-num {
+    font-size: 17px;
   }
 }
