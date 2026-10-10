@@ -31,6 +31,7 @@ function createServer(storage) {
 
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const pathname = url.pathname;
+    console.log(`[веб] ${req.method} ${pathname}`);
 
     // 1. Health check
     if (pathname === '/health') {
@@ -135,12 +136,33 @@ function createServer(storage) {
   return server;
 }
 
-function startServer(storage, port = process.env.PORT || 3000) {
-  const server = createServer(storage);
-  server.listen(port, () => {
-    console.log(`[веб-сервер] 2048 Activity запущен на http://localhost:${port}`);
-  });
-  return server;
+function startServer(storage) {
+  const candidatePorts = [
+    Number(process.env.PORT) || null,
+    8080,
+    3000,
+    80,
+    5000,
+  ].filter((p, i, arr) => p && arr.indexOf(p) === i);
+
+  const servers = [];
+
+  for (const port of candidatePorts) {
+    try {
+      const server = createServer(storage);
+      server.on('error', (err) => {
+        // Порт может быть недоступен без root (например 80) или уже занят
+      });
+      server.listen(port, '0.0.0.0', () => {
+        console.log(`[веб-сервер] 2048 Activity слушает 0.0.0.0:${port}`);
+      });
+      servers.push(server);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return servers[0];
 }
 
 module.exports = { createServer, startServer };
