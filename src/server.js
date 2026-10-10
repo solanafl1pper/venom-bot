@@ -73,8 +73,78 @@ function createServer(storage, client) {
         }
       }
 
+      let inviteUrl = null;
+      if (channelId && meta?.channelLaunches?.[channelId]?.inviteUrl) {
+        inviteUrl = meta.channelLaunches[channelId].inviteUrl;
+      } else if (meta?.lastLaunch?.inviteUrl) {
+        inviteUrl = meta.lastLaunch.inviteUrl;
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, user, channelMembers }));
+      res.end(JSON.stringify({ ok: true, user, channelMembers, inviteUrl }));
+      return;
+    }
+
+    // 1.8 API: Send invitation directly to server chat via bot
+    if (pathname === '/api/send-invite' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (chunk) => (body += chunk));
+      req.on('end', async () => {
+        try {
+          const { channelId, username } = JSON.parse(body || '{}');
+          let sent = false;
+          let inviteUrl = null;
+
+          if (client) {
+            let channel = channelId ? client.channels.cache.get(channelId) : null;
+            let targetTextChannel = null;
+
+            if (channel) {
+              if (channel.isVoiceBased()) {
+                targetTextChannel = channel.guild.channels.cache.find(
+                  (c) => c.isTextBased() && c.permissionsFor(client.user.id)?.has('SendMessages')
+                );
+                try {
+                  const invite = await channel.createInvite({
+                    targetType: 2,
+                    targetApplication: client.user.id,
+                    maxAge: 86400,
+                  });
+                  inviteUrl = invite.url;
+                } catch {}
+              } else if (channel.isTextBased()) {
+                targetTextChannel = channel;
+              }
+            }
+
+            if (!targetTextChannel) {
+              for (const guild of client.guilds.cache.values()) {
+                const tc = guild.channels.cache.find(
+                  (c) => c.isTextBased() && c.permissionsFor(client.user.id)?.has('SendMessages')
+                );
+                if (tc) {
+                  targetTextChannel = tc;
+                  break;
+                }
+              }
+            }
+
+            if (targetTextChannel) {
+              const link = inviteUrl || 'жми /2048';
+              await targetTextChannel.send(
+                `⚔️ **${username || 'Игрок'}** зовёт всех в **2048 (Дуэль)**!\n👉 Залетайте в игру: ${link}`
+              );
+              sent = true;
+            }
+          }
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, sent, inviteUrl }));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
       return;
     }
 

@@ -35,29 +35,29 @@ function showToast(message) {
   if (window._toastTimeout) clearTimeout(window._toastTimeout);
   window._toastTimeout = setTimeout(() => {
     toast.classList.remove('visible');
-  }, 2500);
+  }, 2800);
 }
 
 /* ========================================================
    1. State & DOM References
 ======================================================== */
 let discordSdk = null;
-const savedProfile = JSON.parse(safeStorage.get('venom_2048_profile', '{}') || '{}');
+let cachedInviteUrl = null;
 
 let currentUser = {
-  id: savedProfile.id || 'guest_' + Math.floor(Math.random() * 10000),
-  username: savedProfile.username || 'Игрок',
-  avatar: savedProfile.avatar || null,
-  avatarEmoji: savedProfile.avatarEmoji || '👑',
+  id: 'guest_' + Math.floor(Math.random() * 10000),
+  username: 'Игрок',
+  avatar: 'https://cdn.discordapp.com/embed/avatars/0.png',
 };
 
 let roomId = 'default_room';
 let gameMode = 'solo'; // 'solo' | 'duel'
+let duelState = 'lobby'; // 'lobby' | 'playing' | 'finished'
 let duelPollTimer = null;
 let syncDebounceTimer = null;
 let currentRoundId = 1;
 
-// Бот Вася в дуэли
+// Бот в дуэли
 let botInterval = null;
 let isBotActive = false;
 let botScore = 0;
@@ -83,6 +83,7 @@ const tileContainer = document.getElementById('tileContainer');
 const currentScoreEl = document.getElementById('currentScore');
 const bestScoreEl = document.getElementById('bestScore');
 const btnNewGame = document.getElementById('btnNewGame');
+const btnStopGame = document.getElementById('btnStopGame');
 const btnMenu = document.getElementById('btnMenu');
 const btnOverlayRestart = document.getElementById('btnOverlayRestart');
 const btnCloseMenu = document.getElementById('btnCloseMenu');
@@ -92,18 +93,26 @@ const themeIconEl = document.getElementById('themeIcon');
 const btnModeSolo = document.getElementById('btnModeSolo');
 const btnModeDuel = document.getElementById('btnModeDuel');
 const duelSection = document.getElementById('duelSection');
-const btnInviteFriend = document.getElementById('btnInviteFriend');
-const btnToggleBot = document.getElementById('btnToggleBot');
 
-// Duel Bar
-const myAvatarEmoji = document.getElementById('myAvatarEmoji');
+// Duel Lobby
+const duelLobbyOverlay = document.getElementById('duelLobbyOverlay');
+const lobbyMyAvatar = document.getElementById('lobbyMyAvatar');
+const lobbyMyName = document.getElementById('lobbyMyName');
+const lobbyOppAvatar = document.getElementById('lobbyOppAvatar');
+const lobbyOppName = document.getElementById('lobbyOppName');
+const lobbyOppStatus = document.getElementById('lobbyOppStatus');
+const btnStartDuel = document.getElementById('btnStartDuel');
+const btnDuelBotChoice = document.getElementById('btnDuelBotChoice');
+const btnInviteChat = document.getElementById('btnInviteChat');
+const btnCopyInvite = document.getElementById('btnCopyInvite');
+
+// Duel In-Game Bar
+const myDuelAvatar = document.getElementById('myDuelAvatar');
 const myDuelName = document.getElementById('myDuelName');
 const myDuelScore = document.getElementById('myDuelScore');
 const myMaxTileBadge = document.getElementById('myMaxTileBadge');
-const btnMyAvatar = document.getElementById('btnMyAvatar');
-const btnEditName = document.getElementById('btnEditName');
 
-const oppAvatarEmoji = document.getElementById('oppAvatarEmoji');
+const oppDuelAvatar = document.getElementById('oppDuelAvatar');
 const oppDuelName = document.getElementById('oppDuelName');
 const oppDuelScore = document.getElementById('oppDuelScore');
 const oppMaxTileBadge = document.getElementById('oppMaxTileBadge');
@@ -131,14 +140,7 @@ const summaryOppName = document.getElementById('summaryOppName');
 const summaryOppScore = document.getElementById('summaryOppScore');
 const summaryOppMaxTile = document.getElementById('summaryOppMaxTile');
 const btnDuelRematch = document.getElementById('btnDuelRematch');
-const btnDuelClose = document.getElementById('btnDuelClose');
-
-// Profile Overlay
-const profileOverlay = document.getElementById('profileOverlay');
-const avatarPickerRow = document.getElementById('avatarPickerRow');
-const nicknameInput = document.getElementById('nicknameInput');
-const btnSaveProfile = document.getElementById('btnSaveProfile');
-const btnOpenProfileFromMenu = document.getElementById('btnOpenProfileFromMenu');
+const btnBackToLobby = document.getElementById('btnBackToLobby');
 
 /* ========================================================
    2. Theme Toggle (Light / Dark)
@@ -169,121 +171,119 @@ function applyTheme(theme) {
 }
 
 /* ========================================================
-   3. Player Profile Customization (Никнейм & Аватар)
+   3. Discord Profile Porting
 ======================================================== */
-function initProfileUI() {
-  updateUserUI();
-
-  if (btnMyAvatar) btnMyAvatar.onclick = openProfileModal;
-  if (btnEditName) btnEditName.onclick = openProfileModal;
-  if (myDuelName) myDuelName.onclick = openProfileModal;
-  if (btnOpenProfileFromMenu) {
-    btnOpenProfileFromMenu.onclick = () => {
-      if (menuOverlay) menuOverlay.classList.add('hidden');
-      openProfileModal();
-    };
-  }
-
-  if (avatarPickerRow) {
-    avatarPickerRow.addEventListener('click', (e) => {
-      const btn = e.target.closest('.avatar-option-btn');
-      if (!btn) return;
-      avatarPickerRow.querySelectorAll('.avatar-option-btn').forEach((b) => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      currentUser.avatarEmoji = btn.dataset.emoji || '👑';
-    });
-  }
-
-  if (btnSaveProfile) {
-    btnSaveProfile.onclick = () => {
-      const nick = nicknameInput.value.trim();
-      if (nick) currentUser.username = nick;
-      saveProfile();
-      updateUserUI();
-      if (profileOverlay) profileOverlay.classList.add('hidden');
-      showToast(`Профиль сохранён: ${currentUser.username}`);
-      if (gameMode === 'duel') triggerDuelSync();
-    };
-  }
-}
-
-function openProfileModal() {
-  if (nicknameInput) nicknameInput.value = currentUser.username;
-  if (avatarPickerRow) {
-    avatarPickerRow.querySelectorAll('.avatar-option-btn').forEach((b) => {
-      if (b.dataset.emoji === currentUser.avatarEmoji) b.classList.add('selected');
-      else b.classList.remove('selected');
-    });
-  }
-  if (profileOverlay) profileOverlay.classList.remove('hidden');
-}
-
-function saveProfile() {
-  safeStorage.set(
-    'venom_2048_profile',
-    JSON.stringify({
-      id: currentUser.id,
-      username: currentUser.username,
-      avatar: currentUser.avatar,
-      avatarEmoji: currentUser.avatarEmoji,
-    }),
-  );
-}
-
-function updateUserUI() {
+function updateProfileUI() {
+  // Обновляем аватары и ники во всех блоках интерфейса
   if (myDuelName) myDuelName.textContent = currentUser.username;
-  if (myAvatarEmoji) myAvatarEmoji.textContent = currentUser.avatarEmoji || '👑';
+  if (myDuelAvatar && currentUser.avatar) myDuelAvatar.src = currentUser.avatar;
+  if (lobbyMyName) lobbyMyName.textContent = currentUser.username;
+  if (lobbyMyAvatar && currentUser.avatar) lobbyMyAvatar.src = currentUser.avatar;
   if (summaryMyName) summaryMyName.textContent = currentUser.username;
-  if (summaryMyAvatar) summaryMyAvatar.textContent = currentUser.avatarEmoji || '👑';
+  if (summaryMyAvatar && currentUser.avatar) summaryMyAvatar.src = currentUser.avatar;
 }
 
 /* ========================================================
-   4. Mode Switching & Multiplayer Duel
+   4. Mode Switching & Duel Lobby
 ======================================================== */
 function setupModes() {
-  if (btnModeSolo) btnModeSolo.onclick = () => setMode('solo');
-  if (btnModeDuel) btnModeDuel.onclick = () => setMode('duel');
+  if (btnModeSolo) {
+    btnModeSolo.onclick = () => {
+      gameMode = 'solo';
+      btnModeSolo.classList.add('active');
+      btnModeDuel.classList.remove('active');
+      if (duelSection) duelSection.classList.add('hidden');
+      if (duelLobbyOverlay) duelLobbyOverlay.classList.add('hidden');
+      stopDuelPolling();
+      stopBotDuel();
+      initGame();
+    };
+  }
 
-  // Пригласить в активность через Discord SDK
-  if (btnInviteFriend) {
-    btnInviteFriend.onclick = async () => {
-      if (discordSdk && discordSdk.commands && typeof discordSdk.commands.openInviteDialog === 'function') {
-        try {
-          await discordSdk.commands.openInviteDialog();
-          return;
-        } catch (err) {
-          console.log('[Discord SDK] openInviteDialog:', err.message);
-        }
+  if (btnModeDuel) {
+    btnModeDuel.onclick = () => {
+      gameMode = 'duel';
+      btnModeDuel.classList.add('active');
+      btnModeSolo.classList.remove('active');
+      openDuelLobby();
+      startDuelPolling();
+    };
+  }
+
+  // Кнопка в лобби: Начать дуэль
+  if (btnStartDuel) {
+    btnStartDuel.onclick = () => {
+      if (lastOpponent) {
+        startDuelMatch(false);
+      } else {
+        // Если реального соперника нет — стартуем с ботом
+        startDuelMatch(true);
       }
+    };
+  }
 
+  // Кнопка в лобби: Играть с ботом
+  if (btnDuelBotChoice) {
+    btnDuelBotChoice.onclick = () => {
+      startDuelMatch(true);
+    };
+  }
+
+  // Кнопка в лобби: Позвать в чате сервера
+  if (btnInviteChat) {
+    btnInviteChat.onclick = async () => {
+      try {
+        btnInviteChat.textContent = '⏳ Зовём...';
+        const res = await fetch('/api/send-invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            channelId: roomId,
+            username: currentUser.username,
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.inviteUrl) cachedInviteUrl = data.inviteUrl;
+          showToast('📢 Инвайт отправлен в чат сервера! Пацаны получили вызов.');
+        } else {
+          showToast('Инвайт отправлен в активный чат.');
+        }
+      } catch {
+        showToast('Позови друга в голосовой канал Discord!');
+      } finally {
+        btnInviteChat.textContent = '📢 Позвать в чате';
+      }
+    };
+  }
+
+  // Кнопка в лобби: Скопировать ссылку
+  if (btnCopyInvite) {
+    btnCopyInvite.onclick = async () => {
+      const urlToCopy = cachedInviteUrl || window.location.href;
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(window.location.href);
-          showToast('🔗 Ссылка скопирована! Отправь её другу в чат');
+          await navigator.clipboard.writeText(urlToCopy);
+          showToast('🔗 Ссылка на дуэль скопирована в буфер!');
           return;
         }
       } catch {}
-      showToast('Позови друга в голосовой канал Discord!');
+      showToast(`Ссылка: ${urlToCopy}`);
     };
   }
 
-  // Дуэль с ботом
-  if (btnToggleBot) {
-    btnToggleBot.onclick = () => {
-      if (isBotActive) {
-        stopBotDuel();
-        btnToggleBot.textContent = '🤖 Дуэль с ботом';
-        if (duelStatusText) duelStatusText.textContent = 'Бот остановлен';
-        showToast('Дуэль с ботом завершена');
-      } else {
-        startBotDuel();
-        btnToggleBot.textContent = '⏹️ Стоп бота';
-        if (duelStatusText) duelStatusText.textContent = 'Баттл с ботом начался! 🔥';
-        showToast('Бот Вася вступил в битву!');
-      }
+  // Кнопка стопа игры (завершить и отправить счёт)
+  if (btnStopGame) {
+    btnStopGame.onclick = () => {
+      if (isGameOver) return;
+      isGameOver = true;
+      handleGameOver();
+      showToast('⏹️ Игра завершена, счёт зафиксирован!');
     };
   }
 
+  // Кнопка реванша после дуэли
   if (btnDuelRematch) {
     btnDuelRematch.onclick = async () => {
       if (duelResultOverlay) duelResultOverlay.classList.add('hidden');
@@ -294,37 +294,54 @@ function setupModes() {
           body: JSON.stringify({ roomId }),
         });
       } catch {}
-      initGame();
-      if (isBotActive) startBotDuel();
+
+      if (isBotActive) {
+        startDuelMatch(true);
+      } else {
+        startDuelMatch(false);
+      }
       showToast('⚔️ Новый раунд начался!');
     };
   }
 
-  if (btnDuelClose) {
-    btnDuelClose.onclick = () => {
+  // Вернуться в лобби дуэли
+  if (btnBackToLobby) {
+    btnBackToLobby.onclick = () => {
       if (duelResultOverlay) duelResultOverlay.classList.add('hidden');
+      openDuelLobby();
     };
   }
 }
 
-function setMode(mode) {
-  gameMode = mode;
-  if (mode === 'solo') {
-    if (btnModeSolo) btnModeSolo.classList.add('active');
-    if (btnModeDuel) btnModeDuel.classList.remove('active');
-    if (duelSection) duelSection.classList.add('hidden');
-    stopDuelPolling();
-    stopBotDuel();
+function openDuelLobby() {
+  duelState = 'lobby';
+  stopBotDuel();
+  if (duelSection) duelSection.classList.add('hidden');
+  if (duelResultOverlay) duelResultOverlay.classList.add('hidden');
+  if (gameOverOverlay) gameOverOverlay.classList.add('hidden');
+  if (duelLobbyOverlay) duelLobbyOverlay.classList.remove('hidden');
+}
+
+function startDuelMatch(withBot = false) {
+  duelState = 'playing';
+  if (duelLobbyOverlay) duelLobbyOverlay.classList.add('hidden');
+  if (duelResultOverlay) duelResultOverlay.classList.add('hidden');
+  if (duelSection) duelSection.classList.remove('hidden');
+
+  initGame();
+
+  if (withBot) {
+    startBotDuel();
+    showToast('Баттл с ботом начался! 🔥');
   } else {
-    if (btnModeDuel) btnModeDuel.classList.add('active');
-    if (btnModeSolo) btnModeSolo.classList.remove('active');
-    if (duelSection) duelSection.classList.remove('hidden');
-    startDuelPolling();
+    stopBotDuel();
+    triggerDuelSync();
+    showToast('Дуэль против игрока началась! ⚔️');
   }
 }
 
 /* ========================================================
-   5. Live Bot Opponent Engine (Виртуальный соперник)
+   5. Live Bot Engine (Виртуальный соперник)
 ======================================================== */
 function startBotDuel() {
   isBotActive = true;
@@ -336,7 +353,7 @@ function startBotDuel() {
   botBoard[1][1] = 2;
 
   if (oppDuelName) oppDuelName.textContent = 'Бот Вася';
-  if (oppAvatarEmoji) oppAvatarEmoji.textContent = '🤖';
+  if (oppDuelAvatar) oppDuelAvatar.src = 'https://cdn.discordapp.com/embed/avatars/2.png';
   if (oppDuelScore) oppDuelScore.textContent = '0';
   if (oppMaxTileBadge) oppMaxTileBadge.textContent = '🎯 2';
 
@@ -344,7 +361,7 @@ function startBotDuel() {
 
   if (botInterval) clearInterval(botInterval);
   botInterval = setInterval(() => {
-    if (!isBotActive) return;
+    if (!isBotActive || duelState !== 'playing') return;
 
     botMoves += 1;
     const gained = Math.floor(Math.random() * 8 + 2) * 2;
@@ -356,7 +373,6 @@ function startBotDuel() {
     if (botScore > 2400 && botMaxTile < 512) botMaxTile = 512;
     if (botScore > 4000 && botMaxTile < 1024) botMaxTile = 1024;
 
-    // Генерируем живое поле бота
     updateBotMiniGrid();
     renderMiniBoard(botBoard);
 
@@ -366,7 +382,6 @@ function startBotDuel() {
 
     updateDuelProgress(score, botScore);
 
-    // Если игра игрока завершилась, а бот ещё играл
     if (isGameOver) {
       stopBotDuel();
       showDuelResults({
@@ -374,12 +389,13 @@ function startBotDuel() {
         myName: currentUser.username,
         myScore: score,
         myMaxTile: getMaxTile(),
-        oppName: 'Бот Вася 🤖',
+        oppName: 'Бот Вася',
+        oppAvatar: 'https://cdn.discordapp.com/embed/avatars/2.png',
         oppScore: botScore,
         oppMaxTile: botMaxTile,
       });
     }
-  }, 1300);
+  }, 1250);
 }
 
 function updateBotMiniGrid() {
@@ -401,7 +417,7 @@ function stopBotDuel() {
 }
 
 /* ========================================================
-   6. Multiplayer Duel Sync & Network Optimization
+   6. Multiplayer Duel Sync & Network Logic
 ======================================================== */
 function startDuelPolling() {
   stopDuelPolling();
@@ -427,7 +443,7 @@ function triggerDuelSync() {
       roomId,
       userId: currentUser.id,
       username: currentUser.username,
-      avatar: currentUser.avatarEmoji || '👑',
+      avatar: currentUser.avatar,
       score,
       maxTile,
       grid,
@@ -440,8 +456,10 @@ function triggerDuelSync() {
       if (!data) return;
       if (data.roundId && data.roundId > currentRoundId) {
         currentRoundId = data.roundId;
-        initGame();
-        showToast('⚔️ Соперник начал новый раунд!');
+        if (duelState === 'playing') {
+          initGame();
+          showToast('⚔️ Соперник перезапустил раунд!');
+        }
       }
       updateDuelUI(data.players || []);
     })
@@ -455,36 +473,51 @@ function updateDuelUI(players) {
   const opponents = players.filter((p) => p.userId !== currentUser.id);
 
   if (opponents.length === 0) {
+    lastOpponent = null;
+    if (lobbyOppName) lobbyOppName.textContent = 'Ожидание...';
+    if (lobbyOppStatus) {
+      lobbyOppStatus.textContent = 'НЕ ПОДКЛЮЧЁН';
+      lobbyOppStatus.style.color = '#ef4444';
+    }
+
     if (!isBotActive && duelStatusText) {
       if (oppDuelName) oppDuelName.textContent = 'Ожидание...';
       if (oppDuelScore) oppDuelScore.textContent = '0';
       if (oppMaxTileBadge) oppMaxTileBadge.textContent = '🎯 2';
-      duelStatusText.textContent = 'Позови друга кнопкой выше 👆';
+      duelStatusText.textContent = 'Ожидание соперника...';
     }
     return;
-  }
-
-  // Если зашёл реальный игрок — выключаем бота
-  if (isBotActive) {
-    stopBotDuel();
-    if (btnToggleBot) btnToggleBot.textContent = '🤖 Дуэль с ботом';
   }
 
   opponents.sort((a, b) => b.score - a.score);
   const opp = opponents[0];
   lastOpponent = opp;
 
+  // Обновляем соперника в лобби
+  if (lobbyOppName) lobbyOppName.textContent = opp.username;
+  if (lobbyOppAvatar && opp.avatar) lobbyOppAvatar.src = opp.avatar;
+  if (lobbyOppStatus) {
+    lobbyOppStatus.textContent = 'В ЛОББИ ✅';
+    lobbyOppStatus.style.color = '#10b981';
+  }
+
+  // Если зашёл реальный игрок — выключаем бота
+  if (isBotActive) {
+    stopBotDuel();
+  }
+
+  // Обновляем панель во время матча
   if (oppDuelName) oppDuelName.textContent = opp.username;
   if (oppDuelScore) oppDuelScore.textContent = opp.score;
-  if (oppAvatarEmoji) oppAvatarEmoji.textContent = opp.avatar || '⚔️';
+  if (oppDuelAvatar && opp.avatar) oppDuelAvatar.src = opp.avatar;
   if (oppMaxTileBadge) oppMaxTileBadge.textContent = `🎯 ${opp.maxTile || 2}`;
   if (oppMovesText) oppMovesText.textContent = `ходов: ${opp.moves || 0}`;
 
   if (opp.grid) renderMiniBoard(opp.grid);
   updateDuelProgress(score, opp.score);
 
-  // Проверка исхода дуэли
-  if (isGameOver || opp.isGameOver) {
+  if (duelState === 'playing' && (isGameOver || opp.isGameOver)) {
+    duelState = 'finished';
     const isPlayerWinner = score >= opp.score;
     showDuelResults({
       isPlayerWinner,
@@ -492,6 +525,7 @@ function updateDuelUI(players) {
       myScore: score,
       myMaxTile: getMaxTile(),
       oppName: opp.username,
+      oppAvatar: opp.avatar || 'https://cdn.discordapp.com/embed/avatars/1.png',
       oppScore: opp.score,
       oppMaxTile: opp.maxTile || 2,
     });
@@ -533,7 +567,7 @@ function renderMiniBoard(grid) {
   }
 }
 
-function showDuelResults({ isPlayerWinner, myName, myScore, myMaxTile, oppName, oppScore, oppMaxTile }) {
+function showDuelResults({ isPlayerWinner, myName, myScore, myMaxTile, oppName, oppAvatar, oppScore, oppMaxTile }) {
   if (gameOverOverlay) gameOverOverlay.classList.add('hidden');
 
   if (duelResultIcon) duelResultIcon.textContent = isPlayerWinner ? '🏆' : '💀';
@@ -542,7 +576,7 @@ function showDuelResults({ isPlayerWinner, myName, myScore, myMaxTile, oppName, 
     const diff = Math.abs(myScore - oppScore);
     duelResultDesc.textContent = isPlayerWinner
       ? `Поздравляем! Ты обошёл соперника на ${diff} очков!`
-      : `Соперник оказался сильнее на ${diff} очков. Требуй реванш!`;
+      : `Соперник набрал на ${diff} очков больше. Потребуй реванш!`;
   }
 
   if (summaryMyName) summaryMyName.textContent = myName;
@@ -552,6 +586,7 @@ function showDuelResults({ isPlayerWinner, myName, myScore, myMaxTile, oppName, 
   if (summaryOppName) summaryOppName.textContent = oppName;
   if (summaryOppScore) summaryOppScore.textContent = oppScore;
   if (summaryOppMaxTile) summaryOppMaxTile.textContent = `🎯 ${oppMaxTile}`;
+  if (summaryOppAvatar && oppAvatar) summaryOppAvatar.src = oppAvatar;
 
   if (duelResultOverlay) duelResultOverlay.classList.remove('hidden');
 }
@@ -571,30 +606,31 @@ function getMaxTile() {
 }
 
 /* ========================================================
-   7. Discord Identity & Reliable Score Saving to /профиль
+   7. Discord Identity & Final Score Saving
 ======================================================== */
 async function initDiscord() {
   const urlParams = new URLSearchParams(window.location.search);
   const channelIdParam = urlParams.get('channel_id');
   if (channelIdParam) roomId = channelIdParam;
 
-  // Автоматическая идентификация через сервер бота (по голосовому каналу или лаунчеру)
+  // Автоматический перенос профиля Discord через сервер бота
   try {
     const identRes = await fetch(`/api/identify?channelId=${roomId}`);
     if (identRes.ok) {
       const identData = await identRes.json();
+      if (identData.inviteUrl) cachedInviteUrl = identData.inviteUrl;
+
       if (identData.user) {
         currentUser.id = identData.user.userId;
         currentUser.username = identData.user.username;
         if (identData.user.avatar) currentUser.avatar = identData.user.avatar;
-        saveProfile();
-        updateUserUI();
-        console.log(`[клиент] Привязан к Discord: ${currentUser.username} (${currentUser.id})`);
+        updateProfileUI();
+        console.log(`[профиль] Портирован Discord профиль: ${currentUser.username} (${currentUser.id})`);
       }
     }
   } catch {}
 
-  // Попытка OAuth через Discord SDK
+  // Попытка нативного OAuth в Discord SDK
   try {
     const { DiscordSDK } = await import('https://esm.sh/@discord/embedded-app-sdk');
     discordSdk = new DiscordSDK(CLIENT_ID);
@@ -624,13 +660,16 @@ async function initDiscord() {
     if (discordSdk.user) {
       currentUser.id = discordSdk.user.id;
       currentUser.username = discordSdk.user.username;
-      saveProfile();
-      updateUserUI();
+      if (discordSdk.user.avatar) {
+        currentUser.avatar = `https://cdn.discordapp.com/avatars/${discordSdk.user.id}/${discordSdk.user.avatar}.png?size=128`;
+      }
+      updateProfileUI();
     }
   } catch (err) {
-    console.log('[Discord SDK] Режим прямой связи:', err.message);
+    console.log('[Discord SDK] Работа в связке с сервером:', err.message);
   }
 
+  updateProfileUI();
   fetchUserBestScore();
 }
 
@@ -644,8 +683,10 @@ async function fetchUserBestScore() {
   } catch {}
 }
 
-async function syncBestScoreWithBot(newScore) {
-  safeStorage.set('venom_2048_best', String(newScore));
+// СОХРАНЕНИЕ ТОЛЬКО В КОНЦЕ ИГРЫ
+async function saveFinalScoreToBot(finalScore) {
+  if (finalScore <= 0) return;
+  safeStorage.set('venom_2048_best', String(Math.max(bestScore, finalScore)));
 
   try {
     const res = await fetch('/api/score', {
@@ -654,7 +695,7 @@ async function syncBestScoreWithBot(newScore) {
       body: JSON.stringify({
         userId: currentUser.id,
         username: currentUser.username,
-        score: newScore,
+        score: finalScore,
         channelId: roomId,
       }),
     });
@@ -663,9 +704,9 @@ async function syncBestScoreWithBot(newScore) {
       const data = await res.json();
       if (data.userId && data.userId !== currentUser.id) {
         currentUser.id = data.userId;
-        saveProfile();
       }
       if (data.best) setBestScore(data.best);
+      console.log(`[рекорд] Финальный счёт ${finalScore} успешно записан в профиль Discord!`);
     }
   } catch {}
 }
@@ -676,7 +717,7 @@ function setBestScore(val) {
 }
 
 /* ========================================================
-   8. 2048 Game Engine: Sliding & Merging
+   8. 2048 Game Engine: Sliding & Game Loop
 ======================================================== */
 function initGame() {
   if (tileContainer) tileContainer.innerHTML = '';
@@ -695,7 +736,7 @@ function initGame() {
   spawnTile();
   spawnTile();
 
-  if (gameMode === 'duel') triggerDuelSync();
+  if (gameMode === 'duel' && duelState === 'playing') triggerDuelSync();
 }
 
 function spawnTile() {
@@ -748,7 +789,7 @@ function updateTilePosition(tile) {
 }
 
 function move(dir) {
-  if (isGameOver || isMoving) return;
+  if (isGameOver || isMoving || (gameMode === 'duel' && duelState !== 'playing')) return;
 
   const vectors = {
     up: [-1, 0],
@@ -841,13 +882,13 @@ function move(dir) {
     score += scoreGained;
     if (currentScoreEl) currentScoreEl.textContent = score;
 
+    // Обновляем лучший счёт локально
     if (score > bestScore) {
       setBestScore(score);
-      syncBestScoreWithBot(score);
     }
 
-    // Дебаунс отправки статуса дуэли при активных свайпах
-    if (gameMode === 'duel') {
+    // В дуэли транслируем текущие очки сопернику
+    if (gameMode === 'duel' && duelState === 'playing') {
       if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
       syncDebounceTimer = setTimeout(triggerDuelSync, 200);
     }
@@ -884,11 +925,14 @@ function checkGameOver() {
   return true;
 }
 
+// Завершение игры: ТОЛЬКО ЗДЕСЬ сохраняются очки в профиль
 function handleGameOver() {
-  syncBestScoreWithBot(score);
+  saveFinalScoreToBot(score);
 
   if (gameMode === 'duel') {
+    duelState = 'finished';
     triggerDuelSync();
+
     if (isBotActive) {
       stopBotDuel();
       showDuelResults({
@@ -896,7 +940,8 @@ function handleGameOver() {
         myName: currentUser.username,
         myScore: score,
         myMaxTile: getMaxTile(),
-        oppName: 'Бот Вася 🤖',
+        oppName: 'Бот Вася',
+        oppAvatar: 'https://cdn.discordapp.com/embed/avatars/2.png',
         oppScore: botScore,
         oppMaxTile: botMaxTile,
       });
@@ -910,6 +955,7 @@ function handleGameOver() {
         myScore: score,
         myMaxTile: getMaxTile(),
         oppName: lastOpponent.username,
+        oppAvatar: lastOpponent.avatar || 'https://cdn.discordapp.com/embed/avatars/1.png',
         oppScore: lastOpponent.score,
         oppMaxTile: lastOpponent.maxTile || 2,
       });
@@ -917,7 +963,7 @@ function handleGameOver() {
     }
   }
 
-  // Обычный Game Over в соло
+  // Одиночная игра: Game Over
   if (overlayScoreEl) overlayScoreEl.textContent = score;
   if (gameOverOverlay) gameOverOverlay.classList.remove('hidden');
 }
@@ -1030,7 +1076,6 @@ window.addEventListener('resize', () => {
    10. Application Entry Point
 ======================================================== */
 initTheme();
-initProfileUI();
 setupModes();
 initDiscord();
 initGame();

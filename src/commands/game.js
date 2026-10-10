@@ -108,8 +108,12 @@ function registerGame(client, storage) {
           avatar: typeof interaction.user.displayAvatarURL === 'function'
             ? interaction.user.displayAvatarURL({ extension: 'png', size: 128 })
             : null,
+          inviteUrl,
           at: Date.now(),
         };
+        if (storage.data.meta.lastLaunch) {
+          storage.data.meta.lastLaunch.inviteUrl = inviteUrl;
+        }
       }
     }
 

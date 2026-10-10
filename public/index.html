@@ -202,7 +202,7 @@
     }
 
     /* ========================================================
-       Duel Section: Игроки, Прогресс, Мини-поле соперника
+       Duel Bar (во время матча)
     ======================================================== */
     .duel-section {
       width: 100%;
@@ -258,13 +258,6 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
-      font-size: 20px;
-      transition: transform 0.15s ease;
-    }
-
-    .duel-avatar-wrap:active {
-      transform: scale(0.92);
     }
 
     .duel-avatar-wrap img {
@@ -283,12 +276,6 @@
       min-width: 0;
     }
 
-    .duel-name-row {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
     .duel-name {
       font-size: 12px;
       font-weight: 900;
@@ -296,18 +283,6 @@
       overflow: hidden;
       text-overflow: ellipsis;
       color: var(--text-main);
-      cursor: pointer;
-    }
-
-    .edit-name-icon {
-      font-size: 11px;
-      cursor: pointer;
-      opacity: 0.6;
-      transition: opacity 0.15s;
-    }
-
-    .edit-name-icon:hover {
-      opacity: 1;
     }
 
     .duel-score-row {
@@ -340,11 +315,6 @@
       color: var(--text-muted);
     }
 
-    .body.dark-theme .badge-max-tile {
-      background: rgba(255, 255, 255, 0.1);
-    }
-
-    /* Versus Center */
     .duel-versus {
       display: flex;
       flex-direction: column;
@@ -372,7 +342,6 @@
       text-align: center;
     }
 
-    /* Duel Progress Bar */
     .duel-progress-bar {
       width: 100%;
       height: 6px;
@@ -380,10 +349,6 @@
       border-radius: 3px;
       overflow: hidden;
       display: flex;
-    }
-
-    .body.dark-theme .duel-progress-bar {
-      background: rgba(255, 255, 255, 0.1);
     }
 
     .duel-bar-me {
@@ -400,7 +365,6 @@
       transition: width 0.3s ease;
     }
 
-    /* Нижняя строка дуэли: превью соперника */
     .duel-preview-row {
       display: flex;
       align-items: center;
@@ -463,44 +427,9 @@
     .mini-cell.val-2048 { background: #edc22e; color: #fff; }
     .mini-cell.val-super { background: #10b981; color: #fff; }
 
-    /* Duel Actions Row */
-    .duel-actions-row {
-      display: flex;
-      gap: 8px;
-      width: 100%;
-    }
-
-    .btn-duel-action {
-      flex: 1;
-      background: var(--btn-bg);
-      border: 2px solid var(--btn-border);
-      color: var(--text-main);
-      border-radius: 8px;
-      padding: 8px 10px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 12px;
-      font-weight: 900;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: all 0.15s ease;
-    }
-
-    .btn-duel-action.primary {
-      background: #5865f2;
-      color: #ffffff;
-      border-color: #4752c4;
-      box-shadow: 0 2px 0 #3c45a5;
-    }
-
-    .btn-duel-action:active {
-      transform: translateY(2px);
-      box-shadow: none;
-    }
-
-    /* Board Container */
+    /* ========================================================
+       Board & Tiles
+    ======================================================== */
     .board-container {
       width: 100%;
       position: relative;
@@ -537,7 +466,7 @@
       pointer-events: none;
     }
 
-    /* ПЛИТКИ 2048: ЖИРНЫЙ МОНТСЕРРАТ, ИДЕАЛЬНЫЙ ЦЕНТР */
+    /* Плитки */
     .tile {
       position: absolute;
       top: 0;
@@ -583,7 +512,6 @@
       animation: tile-pop 160ms ease-in-out;
     }
 
-    /* Размеры шрифта под разрядность числа */
     .tile-2, .tile-2 .tile-inner,
     .tile-4, .tile-4 .tile-inner,
     .tile-8, .tile-8 .tile-inner {
@@ -611,7 +539,7 @@
       font-size: clamp(13px, 4vw, 20px) !important;
     }
 
-    /* Цвета плиток (Светлая тема) */
+    /* Цвета плиток */
     .tile-2, .tile-2 .tile-inner { background: #eee4da; color: #776e65; }
     .tile-4, .tile-4 .tile-inner { background: #ede0c8; color: #776e65; }
     .tile-8, .tile-8 .tile-inner { background: #f2b179; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.18); }
@@ -625,7 +553,6 @@
     .tile-2048, .tile-2048 .tile-inner { background: #edc22e; color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,0.3); box-shadow: 0 0 24px rgba(237, 194, 46, 0.85); }
     .tile-super, .tile-super .tile-inner { background: #10b981; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
 
-    /* Цвета плиток (Тёмная тема) */
     body.dark-theme .tile-2, body.dark-theme .tile-2 .tile-inner { background: #3b3d44; color: #f2f3f5; }
     body.dark-theme .tile-4, body.dark-theme .tile-4 .tile-inner { background: #464850; color: #f2f3f5; }
     body.dark-theme .tile-8, body.dark-theme .tile-8 .tile-inner { background: #ea7a32; color: #ffffff; }
@@ -653,7 +580,7 @@
     /* Controls */
     .controls-row {
       display: flex;
-      gap: 12px;
+      gap: 10px;
       margin-top: 14px;
       width: 100%;
     }
@@ -665,11 +592,15 @@
       border-radius: 8px;
       font-weight: 900;
       font-size: 13px;
-      letter-spacing: 0.8px;
-      padding: 10px 16px;
+      letter-spacing: 0.6px;
+      padding: 10px 12px;
       transition: all 0.15s ease;
       outline: none;
       text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
     .btn-action {
@@ -679,6 +610,13 @@
       box-shadow: var(--btn-shadow);
     }
 
+    .btn-action.danger {
+      background: #ef4444;
+      color: #ffffff;
+      border-color: #dc2626;
+      box-shadow: 0 2px 0 #b91c1c;
+    }
+
     .btn-action.primary {
       background: #5865f2;
       color: #ffffff;
@@ -686,8 +624,15 @@
       box-shadow: 0 2px 0 #3c45a5;
     }
 
+    .btn-action.success {
+      background: #10b981;
+      color: #ffffff;
+      border-color: #059669;
+      box-shadow: 0 2px 0 #047857;
+    }
+
     .btn-action:hover {
-      background: var(--btn-hover);
+      filter: brightness(1.05);
     }
 
     .btn-action:active {
@@ -703,7 +648,7 @@
       text-align: center;
     }
 
-    /* Toast Notification */
+    /* Toast */
     .toast {
       position: fixed;
       top: 16px;
@@ -723,7 +668,7 @@
       backdrop-filter: blur(5px);
       border: 1px solid rgba(255, 255, 255, 0.15);
       text-align: center;
-      white-space: nowrap;
+      max-width: 90%;
     }
 
     .toast.visible {
@@ -740,7 +685,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      backdrop-filter: blur(3px);
+      backdrop-filter: blur(4px);
       z-index: 50;
       padding: 14px;
     }
@@ -752,7 +697,7 @@
     .overlay-box {
       background: var(--modal-bg);
       border-radius: 12px;
-      padding: 22px 24px;
+      padding: 20px 22px;
       text-align: center;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
       border: 2px solid var(--modal-border);
@@ -767,42 +712,121 @@
       margin-bottom: 6px;
     }
 
-    .overlay-score {
-      color: var(--text-muted);
-      font-size: 15px;
-      font-weight: 700;
-      margin-bottom: 16px;
-    }
-
-    .overlay-score span {
-      color: #10b981;
-      font-size: 22px;
-      font-weight: 900;
-    }
-
-    /* Duel Results Modal */
-    .duel-result-icon {
-      font-size: 48px;
-      margin-bottom: 6px;
-    }
-
-    .duel-result-desc {
+    .overlay-desc {
       font-size: 13px;
       font-weight: 700;
       color: var(--text-muted);
-      margin-bottom: 16px;
+      margin-bottom: 14px;
+      line-height: 1.4;
+    }
+
+    /* ========================================================
+       DUEL LOBBY (МЕНЮ ДУЭЛИ ДО СТАРТА)
+    ======================================================== */
+    .lobby-box {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .lobby-players-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      background: var(--duel-bg);
+      border: 2px solid var(--duel-border);
+      border-radius: 10px;
+      padding: 12px 10px;
+    }
+
+    .lobby-player {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+    }
+
+    .lobby-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: 3px solid #5865f2;
+      overflow: hidden;
+      background: #2b2d31;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lobby-player.opp .lobby-avatar {
+      border-color: #f59e0b;
+    }
+
+    .lobby-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .lobby-name {
+      font-size: 13px;
+      font-weight: 900;
+      color: var(--text-main);
+      max-width: 110px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .lobby-status-pill {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 10px;
+      margin-top: 4px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+    }
+
+    .lobby-player.opp .lobby-status-pill {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+    }
+
+    .lobby-vs {
+      font-size: 16px;
+      font-weight: 900;
+      color: #ef4444;
+    }
+
+    .lobby-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .lobby-invite-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    /* Duel Results */
+    .duel-result-icon {
+      font-size: 46px;
+      margin-bottom: 4px;
     }
 
     .duel-summary-cards {
       display: flex;
       align-items: center;
       justify-content: space-around;
-      gap: 12px;
+      gap: 8px;
       background: var(--duel-bg);
       border: 2px solid var(--duel-border);
       border-radius: 10px;
-      padding: 12px;
-      margin-bottom: 16px;
+      padding: 10px;
+      margin-bottom: 14px;
     }
 
     .summary-card {
@@ -812,35 +836,37 @@
       flex: 1;
     }
 
-    .summary-avatar-wrap {
+    .summary-avatar {
       width: 44px;
       height: 44px;
       border-radius: 50%;
       border: 2px solid #5865f2;
       background: #2b2d31;
+      overflow: hidden;
+      margin-bottom: 4px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
-      overflow: hidden;
-      margin-bottom: 4px;
     }
 
-    .summary-avatar-wrap img {
+    .summary-card.opp .summary-avatar {
+      border-color: #f59e0b;
+    }
+
+    .summary-avatar img {
       width: 100%;
       height: 100%;
       object-fit: cover;
-    }
-
-    .summary-card.opp .summary-avatar-wrap {
-      border-color: #f59e0b;
     }
 
     .summary-name {
       font-size: 12px;
       font-weight: 900;
       color: var(--text-main);
-      margin-bottom: 2px;
+      max-width: 90px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .summary-score {
@@ -857,74 +883,6 @@
       font-size: 11px;
       font-weight: 800;
       color: var(--text-muted);
-      margin-top: 2px;
-    }
-
-    .summary-vs {
-      font-size: 13px;
-      font-weight: 900;
-      color: var(--text-muted);
-    }
-
-    .duel-result-actions {
-      display: flex;
-      gap: 10px;
-      width: 100%;
-    }
-
-    /* Profile Edit Modal */
-    .profile-hint {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--text-muted);
-      margin-bottom: 12px;
-    }
-
-    .avatar-picker-row {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 14px;
-    }
-
-    .avatar-option-btn {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: var(--btn-bg);
-      border: 2px solid var(--btn-border);
-      font-size: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-
-    .avatar-option-btn.selected {
-      border-color: #5865f2;
-      background: #5865f2;
-      transform: scale(1.1);
-    }
-
-    .nickname-input {
-      width: 100%;
-      background: var(--btn-bg);
-      border: 2px solid var(--btn-border);
-      color: var(--text-main);
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-family: inherit;
-      font-size: 14px;
-      font-weight: 800;
-      outline: none;
-      margin-bottom: 16px;
-      text-align: center;
-    }
-
-    .nickname-input:focus {
-      border-color: #5865f2;
     }
   </style>
 </head>
@@ -959,21 +917,17 @@
       <button class="mode-btn" id="btnModeDuel">⚔️ Дуэль</button>
     </div>
 
-    <!-- Секция дуэли -->
+    <!-- Секция дуэли (во время игры) -->
     <div class="duel-section hidden" id="duelSection">
       <div class="duel-card">
-        <!-- Верх: Счёт и аватары -->
         <div class="duel-players-row">
           <!-- Ты -->
           <div class="duel-player me">
-            <div class="duel-avatar-wrap" id="btnMyAvatar" title="Нажми, чтобы сменить значок">
-              <span id="myAvatarEmoji">👑</span>
+            <div class="duel-avatar-wrap">
+              <img id="myDuelAvatar" src="https://cdn.discordapp.com/embed/avatars/0.png" alt="me">
             </div>
             <div class="duel-meta">
-              <div class="duel-name-row">
-                <span class="duel-name" id="myDuelName" title="Сменить ник">Ты</span>
-                <span class="edit-name-icon" id="btnEditName">✏️</span>
-              </div>
+              <span class="duel-name" id="myDuelName">Ты</span>
               <div class="duel-score-row">
                 <span class="duel-score" id="myDuelScore">0</span>
                 <span class="badge-max-tile" id="myMaxTileBadge">🎯 2</span>
@@ -984,18 +938,16 @@
           <!-- Центр VS -->
           <div class="duel-versus">
             <span class="vs-badge">VS</span>
-            <span class="duel-status-text" id="duelStatusText">Ожидание...</span>
+            <span class="duel-status-text" id="duelStatusText">Матч идёт!</span>
           </div>
 
           <!-- Соперник -->
           <div class="duel-player opponent">
-            <div class="duel-avatar-wrap" id="oppAvatarWrap">
-              <span id="oppAvatarEmoji">🤖</span>
+            <div class="duel-avatar-wrap">
+              <img id="oppDuelAvatar" src="https://cdn.discordapp.com/embed/avatars/1.png" alt="opp">
             </div>
             <div class="duel-meta">
-              <div class="duel-name-row" style="justify-content: flex-end;">
-                <span class="duel-name" id="oppDuelName">Ожидание</span>
-              </div>
+              <span class="duel-name" id="oppDuelName">Соперник</span>
               <div class="duel-score-row">
                 <span class="badge-max-tile" id="oppMaxTileBadge">🎯 2</span>
                 <span class="duel-score" id="oppDuelScore">0</span>
@@ -1010,7 +962,7 @@
           <div class="duel-bar-opp" id="duelBarOpp" style="width: 50%;"></div>
         </div>
 
-        <!-- Превью сетки соперника в реальном времени -->
+        <!-- Превью сетки соперника -->
         <div class="duel-preview-row">
           <div class="duel-preview-label">
             <span>👁️ Поле соперника:</span>
@@ -1026,16 +978,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Кнопки действий дуэли -->
-      <div class="duel-actions-row">
-        <button class="btn-duel-action primary" id="btnInviteFriend">
-          👥 Позвать на дуэль
-        </button>
-        <button class="btn-duel-action" id="btnToggleBot">
-          🤖 Дуэль с ботом
-        </button>
-      </div>
     </div>
 
     <!-- Игровое поле 4х4 -->
@@ -1045,16 +987,64 @@
         <div class="grid-cell"></div><div class="grid-cell"></div><div class="grid-cell"></div><div class="grid-cell"></div>
         <div class="grid-cell"></div><div class="grid-cell"></div><div class="grid-cell"></div><div class="grid-cell"></div>
         <div class="grid-cell"></div><div class="grid-cell"></div><div class="grid-cell"></div><div class="grid-cell"></div>
-        <!-- Контейнер для летающих плиток -->
+        <!-- Плитки -->
         <div class="tile-container" id="tileContainer"></div>
+      </div>
+
+      <!-- ЛОББИ ДУЭЛИ (МЕНЮ ДО СТАРТА) -->
+      <div class="overlay hidden" id="duelLobbyOverlay">
+        <div class="overlay-box lobby-box">
+          <h2 class="overlay-title">⚔️ ЛОББИ ДУЭЛИ</h2>
+          <p class="overlay-desc" id="lobbyDesc">Позови друзей в игру или сразись с ботом в реальном времени!</p>
+
+          <div class="lobby-players-card">
+            <!-- Ты -->
+            <div class="lobby-player">
+              <div class="lobby-avatar">
+                <img id="lobbyMyAvatar" src="https://cdn.discordapp.com/embed/avatars/0.png" alt="me">
+              </div>
+              <span class="lobby-name" id="lobbyMyName">Ты</span>
+              <span class="lobby-status-pill">ГОТОВ</span>
+            </div>
+
+            <span class="lobby-vs">VS</span>
+
+            <!-- Соперник -->
+            <div class="lobby-player opp">
+              <div class="lobby-avatar">
+                <img id="lobbyOppAvatar" src="https://cdn.discordapp.com/embed/avatars/1.png" alt="opp">
+              </div>
+              <span class="lobby-name" id="lobbyOppName">Ожидание...</span>
+              <span class="lobby-status-pill" id="lobbyOppStatus">НЕ ПОДКЛЮЧЁН</span>
+            </div>
+          </div>
+
+          <div class="lobby-actions">
+            <button class="btn btn-action success" id="btnStartDuel">
+              ⚔️ НАЧАТЬ ДУЭЛЬ
+            </button>
+            <button class="btn btn-action" id="btnDuelBotChoice">
+              🤖 Играть с ботом
+            </button>
+            <div class="lobby-invite-group">
+              <button class="btn btn-action primary" id="btnInviteChat">
+                📢 Позвать в чате
+              </button>
+              <button class="btn btn-action" id="btnCopyInvite">
+                🔗 Копия ссылки
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Оверлей одиночного Game Over -->
       <div class="overlay hidden" id="gameOverOverlay">
         <div class="overlay-box">
-          <h2 class="overlay-title" id="overlayTitle">Game Over!</h2>
-          <p class="overlay-score">Счёт: <span id="overlayScore">0</span></p>
-          <button class="btn btn-action" id="btnOverlayRestart">TRY AGAIN</button>
+          <h2 class="overlay-title" id="overlayTitle">Игра завершена!</h2>
+          <p class="overlay-desc" id="overlayScoreText">Итоговый счёт: <span id="overlayScore" style="color:#10b981; font-weight:900;">0</span></p>
+          <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">Рекорд сохранён в твой <b>/профиль</b>!</p>
+          <button class="btn btn-action primary" id="btnOverlayRestart">ИГРАТЬ СНОВА</button>
         </div>
       </div>
 
@@ -1062,90 +1052,67 @@
       <div class="overlay hidden" id="duelResultOverlay">
         <div class="overlay-box">
           <div class="duel-result-icon" id="duelResultIcon">🏆</div>
-          <h2 class="overlay-title" id="duelResultTitle">ПОБЕДА!</h2>
-          <p class="duel-result-desc" id="duelResultDesc">Ты обошёл соперника по очкам!</p>
+          <h2 class="overlay-title" id="duelResultTitle">ПОБЕДА В ДУЭЛИ!</h2>
+          <p class="overlay-desc" id="duelResultDesc">Ты обошёл соперника по очкам!</p>
 
           <div class="duel-summary-cards">
-            <!-- Ты -->
-            <div class="summary-card me">
-              <div class="summary-avatar-wrap">
-                <span id="summaryMyAvatar">👑</span>
+            <div class="summary-card">
+              <div class="summary-avatar">
+                <img id="summaryMyAvatar" src="https://cdn.discordapp.com/embed/avatars/0.png" alt="me">
               </div>
-              <div class="summary-name" id="summaryMyName">Ты</div>
-              <div class="summary-score" id="summaryMyScore">0</div>
-              <div class="summary-max-tile" id="summaryMyMaxTile">🎯 2</div>
+              <span class="summary-name" id="summaryMyName">Ты</span>
+              <span class="summary-score" id="summaryMyScore">0</span>
+              <span class="summary-max-tile" id="summaryMyMaxTile">🎯 2</span>
             </div>
 
-            <div class="summary-vs">VS</div>
+            <span style="font-weight:900; color:#ef4444;">VS</span>
 
-            <!-- Соперник -->
             <div class="summary-card opp">
-              <div class="summary-avatar-wrap">
-                <span id="summaryOppAvatar">🤖</span>
+              <div class="summary-avatar">
+                <img id="summaryOppAvatar" src="https://cdn.discordapp.com/embed/avatars/1.png" alt="opp">
               </div>
-              <div class="summary-name" id="summaryOppName">Соперник</div>
-              <div class="summary-score" id="summaryOppScore">0</div>
-              <div class="summary-max-tile" id="summaryOppMaxTile">🎯 2</div>
+              <span class="summary-name" id="summaryOppName">Соперник</span>
+              <span class="summary-score" id="summaryOppScore">0</span>
+              <span class="summary-max-tile" id="summaryOppMaxTile">🎯 2</span>
             </div>
           </div>
 
-          <div class="duel-result-actions">
+          <div style="display:flex; gap:10px;">
             <button class="btn btn-action primary" id="btnDuelRematch">⚔️ РЕВАНШ</button>
-            <button class="btn btn-action" id="btnDuelClose">ЗАКРЫТЬ</button>
+            <button class="btn btn-action" id="btnBackToLobby">🚪 В ЛОББИ</button>
           </div>
-        </div>
-      </div>
-
-      <!-- Модалка смены ника и аватара -->
-      <div class="overlay hidden" id="profileOverlay">
-        <div class="overlay-box">
-          <h3 class="overlay-title">Твой профиль в дуэли</h3>
-          <p class="profile-hint">Выбери значок и укажи свой ник:</p>
-
-          <div class="avatar-picker-row" id="avatarPickerRow">
-            <button class="avatar-option-btn selected" data-emoji="👑">👑</button>
-            <button class="avatar-option-btn" data-emoji="🐺">🐺</button>
-            <button class="avatar-option-btn" data-emoji="🦁">🦁</button>
-            <button class="avatar-option-btn" data-emoji="⚔️">⚔️</button>
-            <button class="avatar-option-btn" data-emoji="💀">💀</button>
-            <button class="avatar-option-btn" data-emoji="🥷">🥷</button>
-            <button class="avatar-option-btn" data-emoji="⚡">⚡</button>
-            <button class="avatar-option-btn" data-emoji="👾">👾</button>
-          </div>
-
-          <input type="text" class="nickname-input" id="nicknameInput" maxlength="15" placeholder="Введи свой ник...">
-          <button class="btn btn-action primary" id="btnSaveProfile">СОХРАНИТЬ</button>
         </div>
       </div>
 
       <!-- Модалка MENU -->
       <div class="overlay hidden" id="menuOverlay">
         <div class="overlay-box" style="text-align: left;">
-          <h3 class="overlay-title" style="margin-bottom: 12px;">Меню 2048</h3>
-          <p class="profile-hint" style="text-align: left; margin-bottom: 14px;">
-            В режиме <b>Дуэль</b> ты играешь против друзей в Discord или тренируешься с ботом.
-            Плитки соперника видны в реальном времени!
+          <h3 class="overlay-title" style="margin-bottom: 8px;">Меню 2048</h3>
+          <p class="overlay-desc" style="text-align:left;">
+            • Очки сохраняются в боте в конце игры при поражении или нажатии <b>СТОП</b>.<br>
+            • В режиме <b>Дуэль</b> ты соревнуешься с друзьями по войсу или ботом.<br>
+            • Инвайт отправляется в чат по кнопке <b>📢 Позвать в чате</b>.
           </p>
-          <button class="btn btn-action primary" id="btnOpenProfileFromMenu" style="margin-bottom: 8px;">✏️ Настроить свой ник</button>
-          <button class="btn btn-action" id="btnCloseMenu">ПРОДОЛЖИТЬ</button>
+          <button class="btn btn-action primary" id="btnCloseMenu">ПРОДОЛЖИТЬ</button>
         </div>
       </div>
     </main>
 
-    <!-- Кнопки под полем -->
+    <!-- Кнопки управления под полем -->
     <div class="controls-row">
-      <button class="btn btn-action" id="btnNewGame">НОВАЯ ИГРА</button>
-      <button class="btn btn-action" id="btnMenu">МЕНЮ</button>
+      <button class="btn btn-action" id="btnNewGame">🔄 ЗАНОВО</button>
+      <button class="btn btn-action danger" id="btnStopGame">⏹️ СТОП</button>
+      <button class="btn btn-action" id="btnMenu">⚙️ МЕНЮ</button>
     </div>
 
     <!-- Подсказка -->
     <footer class="footer">
-      Стрелки / WASD / свайпы · Одинаковые цифры сливаются
+      Стрелки / WASD / свайпы · СТОП фиксирует результат в профиль
     </footer>
   </div>
 
   <script type="module">
-    import './game.js?v=2048_fix_v5';
+    import './game.js?v=2048_fix_v6';
   </script>
 </body>
 </html>
