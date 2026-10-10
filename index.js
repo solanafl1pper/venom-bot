@@ -32,9 +32,14 @@ async function registerInGuild(client, guildId) {
 /** Регистрация команд в каждом сервере + очистка глобальных. */
 async function syncGuildCommands(client, clearGlobal = false) {
   if (clearGlobal) {
-    // Убираем прежние глобальные команды, иначе они будут дублироваться.
-    await client.application.commands.set([]);
-    console.log('[бот] Глобальные команды очищены');
+    try {
+      const globalCmds = await client.application.commands.fetch();
+      const entryPoints = globalCmds.filter((c) => c.type === 4);
+      await client.application.commands.set([...entryPoints.values()]);
+      console.log('[бот] Глобальные команды синхронизированы');
+    } catch (err) {
+      console.log('[бот] Пропуск очистки глобальных команд:', err.message);
+    }
   }
 
   for (const guild of client.guilds.cache.values()) {
