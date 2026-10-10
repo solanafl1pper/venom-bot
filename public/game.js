@@ -14,9 +14,9 @@ let roomId = 'default_room';
 let gameMode = 'solo'; // 'solo' | 'duel'
 let duelPollTimer = null;
 
-let board = []; // 4x4 array of tile objects: { id, value, r, c } or null
+let board = []; // 4x4 array of tile objects or null
 let tileIdSeq = 1;
-const tileElements = new Map(); // id -> DOMElement
+let isMoving = false; // prevents input spam during sliding
 
 let score = 0;
 let bestScore = 0;
@@ -120,7 +120,7 @@ async function initDiscord() {
     updateUserUI();
     fetchUserBestScore();
   } catch (err) {
-    console.log('[Discord SDK] Локальный/веб режим:', err.message);
+    console.log('[Discord SDK] Веб-режим:', err.message);
     if (userStatusEl) userStatusEl.textContent = 'Веб-версия';
     updateUserUI();
     const saved = localStorage.getItem('venom_2048_best');
@@ -130,8 +130,8 @@ async function initDiscord() {
 
 function updateUserUI() {
   if (userNameEl) userNameEl.textContent = currentUser.username;
-  if (userAvatarEl) userAvatarEl.src = currentUser.avatar;
-  if (myDuelAvatar) myDuelAvatar.src = currentUser.avatar;
+  if (userAvatarEl && currentUser.avatar) userAvatarEl.src = currentUser.avatar;
+  if (myDuelAvatar && currentUser.avatar) myDuelAvatar.src = currentUser.avatar;
   if (myDuelName) myDuelName.textContent = currentUser.username;
 }
 
@@ -242,12 +242,10 @@ function updateDuelUI(players) {
   if (opponents.length === 0) {
     oppDuelName.textContent = 'Ждём друга...';
     oppDuelScore.textContent = '0';
-    oppDuelAvatar.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2380848e"%3E%3Cpath d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/%3E%3C/svg%3E';
     duelStatusText.textContent = 'Один в войсе';
     return;
   }
 
-  // Берём лучшего соперника
   opponents.sort((a, b) => b.score - a.score);
   const opp = opponents[0];
 
@@ -279,7 +277,7 @@ function getMaxTile() {
 }
 
 /* ========================================================
-   4. 2048 Engine With Real Sliding Animations
+   4. 2048 Engine: Smooth Sliding & Two-Layer Tiles
 ======================================================= */
 function getCellMetrics() {
   const rect = boardEl.getBoundingClientRect();
@@ -291,13 +289,12 @@ function getCellMetrics() {
 }
 
 function initGame() {
-  // Очищаем DOM и состояние
   tileContainer.innerHTML = '';
-  tileElements.clear();
   board = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
 
   score = 0;
   isGameOver = false;
+  isMoving = false;
   currentScoreEl.textContent = '0';
   gameOverOverlay.classList.add('hidden');
   menuOverlay.classList.add('hidden');
@@ -324,6 +321,9 @@ function spawnTile() {
     value,
     r,
     c,
+    merged: false,
+    el: null,
+    inner: null,
   };
 
   board[r][c] = tile;
@@ -333,124 +333,124 @@ function spawnTile() {
 
 function createTileDOM(tile, isNew = false) {
   const { gap, cellSize } = getCellMetrics();
-  const el = document.createElement('div');
-  const cls = tile.value <= 2048 ? `tile-${tile.value}` : 'tile-super';
-  el.className = `tile ${cls} ${isNew ? 'new-tile' : ''}`;
 
+  const el = document.createElement('div');
+  el.className = `tile ${isNew ? 'tile-new' : ''}`;
   const x = tile.c * (cellSize + gap);
   const y = tile.r * (cellSize + gap);
   el.style.transform = `translate(${x}px, ${y}px)`;
   el.style.width = `${cellSize}px`;
   el.style.height = `${cellSize}px`;
-  el.textContent = tile.value;
 
+  const inner = document.createElement('div');
+  const cls = tile.value <= 2048 ? `tile-inner-${tile.value}` : 'tile-inner-super';
+  inner.className = `tile-inner ${cls}`;
+  inner.textContent = tile.value;
+
+  el.appendChild(inner);
   tileContainer.appendChild(el);
-  tileElements.set(tile.id, el);
+
+  tile.el = el;
+  tile.inner = inner;
   return el;
 }
 
 function updateTilePosition(tile) {
-  const el = tileElements.get(tile.id);
-  if (!el) return;
-
+  if (!tile || !tile.el) return;
   const { gap, cellSize } = getCellMetrics();
   const x = tile.c * (cellSize + gap);
   const y = tile.r * (cellSize + gap);
-  el.style.transform = `translate(${x}px, ${y}px)`;
-}
-
-function updateTileValue(tile) {
-  const el = tileElements.get(tile.id);
-  if (!el) return;
-
-  el.className = `tile ${tile.value <= 2048 ? `tile-${tile.value}` : 'tile-super'} merged-tile`;
-  el.textContent = tile.value;
-}
-
-function removeTileDOM(tileId) {
-  const el = tileElements.get(tileId);
-  if (el) {
-    el.remove();
-    tileElements.delete(tileId);
-  }
+  tile.el.style.transform = `translate(${x}px, ${y}px)`;
 }
 
 function move(dir) {
-  if (isGameOver) return;
+  if (isGameOver || isMoving) return;
 
   const vectors = {
-    up: { r: -1, c: 0 },
-    down: { r: 1, c: 0 },
-    left: { r: 0, c: -1 },
-    right: { r: 0, c: 1 },
+    up: [-1, 0],
+    down: [1, 0],
+    left: [0, -1],
+    right: [0, 1],
   };
   const vector = vectors[dir];
   if (!vector) return;
 
-  const rOrder = vector.r === 1 ? [3, 2, 1, 0] : [0, 1, 2, 3];
-  const cOrder = vector.c === 1 ? [3, 2, 1, 0] : [0, 1, 2, 3];
+  const rOrder = vector[0] === 1 ? [3, 2, 1, 0] : [0, 1, 2, 3];
+  const cOrder = vector[1] === 1 ? [3, 2, 1, 0] : [0, 1, 2, 3];
+
+  // Сбрасываем флаг слияния прошлого хода
+  for (let r = 0; r < SIZE; r += 1) {
+    for (let c = 0; c < SIZE; c += 1) {
+      if (board[r][c]) board[r][c].merged = false;
+    }
+  }
 
   let moved = false;
   let scoreGained = 0;
-  const mergedMap = Array.from({ length: SIZE }, () => Array(SIZE).fill(false));
-  const tilesToRemove = [];
+  const tilesToClean = [];
 
   for (const r of rOrder) {
     for (const c of cOrder) {
       const tile = board[r][c];
       if (!tile) continue;
 
-      let nextR = r;
-      let nextC = c;
+      let targetR = r;
+      let targetC = c;
 
-      // Ищем максимально далёкую клетку
+      // Ищем самую дальнюю клетку
       while (true) {
-        const testR = nextR + vector.r;
-        const testC = nextC + vector.c;
-        if (testR < 0 || testR >= SIZE || testC < 0 || testC >= SIZE) break;
+        const nextR = targetR + vector[0];
+        const nextC = targetC + vector[1];
+        if (nextR < 0 || nextR >= SIZE || nextC < 0 || nextC >= SIZE) break;
 
-        const neighbor = board[testR][testC];
+        const neighbor = board[nextR][nextC];
         if (!neighbor) {
-          nextR = testR;
-          nextC = testC;
-        } else if (neighbor.value === tile.value && !mergedMap[testR][testC]) {
-          // Слияние!
-          nextR = testR;
-          nextC = testC;
+          targetR = nextR;
+          targetC = nextC;
+        } else if (neighbor.value === tile.value && !neighbor.merged && !tile.merged) {
+          targetR = nextR;
+          targetC = nextC;
           break;
         } else {
           break;
         }
       }
 
-      if (nextR !== r || nextC !== c) {
+      if (targetR !== r || targetC !== c) {
         moved = true;
-        const targetTile = board[nextR][nextC];
+        const targetTile = board[targetR][targetC];
 
         if (targetTile && targetTile.value === tile.value) {
-          // Сливаемся
-          mergedMap[nextR][nextC] = true;
+          // Слияние двух плиток в одну
           board[r][c] = null;
-
-          tile.r = nextR;
-          tile.c = nextC;
+          tile.r = targetR;
+          tile.c = targetC;
           updateTilePosition(tile);
 
-          // Обновляем целевую плитку
-          targetTile.value *= 2;
-          scoreGained += targetTile.value;
+          // Создаём объединённую плитку
+          const mergedTile = {
+            id: tileIdSeq++,
+            value: tile.value * 2,
+            r: targetR,
+            c: targetC,
+            merged: true,
+            el: null,
+            inner: null,
+          };
+          board[targetR][targetC] = mergedTile;
+          scoreGained += mergedTile.value;
 
-          tilesToRemove.push(tile.id);
-          setTimeout(() => {
-            removeTileDOM(tile.id);
-            updateTileValue(targetTile);
-          }, 115);
+          tilesToClean.push({
+            oldTile1: tile,
+            oldTile2: targetTile,
+            newTile: mergedTile,
+          });
         } else {
-          // Просто перемещение
+          // Простое перемещение
           board[r][c] = null;
-          board[nextR][nextC] = tile;
-          tile.r = nextR;
-          tile.c = nextC;
+          board[targetR][targetC] = tile;
+          tile.r = targetR;
+          tile.c = targetC;
           updateTilePosition(tile);
         }
       }
@@ -458,6 +458,7 @@ function move(dir) {
   }
 
   if (moved) {
+    isMoving = true;
     score += scoreGained;
     currentScoreEl.textContent = score;
 
@@ -466,18 +467,27 @@ function move(dir) {
       syncBestScoreWithBot(score);
     }
 
-    if (gameMode === 'duel') {
-      syncDuelState();
-    }
+    if (gameMode === 'duel') syncDuelState();
 
+    // Завершаем анимацию слияния через 100мс
     setTimeout(() => {
+      for (const { oldTile1, oldTile2, newTile } of tilesToClean) {
+        if (oldTile1.el) oldTile1.el.remove();
+        if (oldTile2.el) oldTile2.el.remove();
+
+        createTileDOM(newTile, false);
+        if (newTile.el) newTile.el.classList.add('tile-merged');
+      }
+
       spawnTile();
+      isMoving = false;
+
       if (checkGameOver()) {
         isGameOver = true;
         showGameOver();
         if (gameMode === 'duel') syncDuelState();
       }
-    }, 115);
+    }, 105);
   }
 }
 
@@ -589,7 +599,6 @@ btnCloseMenu.addEventListener('click', () => {
 });
 
 window.addEventListener('resize', () => {
-  // Пересчитываем координаты плиток при изменении размера окна
   for (let r = 0; r < SIZE; r += 1) {
     for (let c = 0; c < SIZE; c += 1) {
       if (board[r][c]) updateTilePosition(board[r][c]);
@@ -597,7 +606,7 @@ window.addEventListener('resize', () => {
   }
 });
 
-// Запуск игры
+// Старт
 initTheme();
 setupModes();
 initDiscord();

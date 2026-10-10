@@ -242,7 +242,7 @@ function makeMessage(content, authorId = '5', bot = false, channel = null) {
   );
   check('вложения не шлются', !Array.isArray(sent[3]?.files) || sent[3].files.length === 0);
 
-  check('embed РПП без картинки', !JSON.stringify(sent[0]).includes('media'));
+  check('embed РПП содержит картинку', JSON.stringify(sent[0]).includes(VICTORY_IMAGE_URL));
 
   client.emit('messageCreate', makeMessage('победа', '9', false, channel));
   await new Promise((r) => setImmediate(r));

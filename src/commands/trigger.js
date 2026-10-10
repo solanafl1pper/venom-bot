@@ -200,12 +200,8 @@ function register(client, storage) {
       previous.delete().catch(() => {});
     }
 
-    // Картинка к победе и рпп появляется раз в пару сообщений (каждый 2-й раз)
-    let showImage = Boolean(trigger.image);
-    if (trigger.id === 'rpp' || trigger.id === 'victory' || trigger.id === 'three') {
-      victoryHitCount += 1;
-      showImage = victoryHitCount % 2 === 0;
-    }
+    // Картинка показывается надёжно и для победы, и для рпп
+    const showImage = Boolean(trigger.image);
 
     try {
       const { container } = buildTriggerContainer(

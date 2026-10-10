@@ -4,20 +4,563 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>VENOM 2048</title>
-  <link rel="stylesheet" href="./style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #FAF8EF;
+      --text-main: #776e65;
+      --text-muted: #8f7a66;
+      --card-bg: #bbada0;
+      --card-label: #eee4da;
+      --board-bg: #bbada0;
+      --cell-bg: #cdc1b4;
+      --brand-bg: #edc22e;
+      --brand-shadow: 0 4px 0 #cc9b1c;
+      --btn-bg: #fbf8f3;
+      --btn-border: #dcd3c7;
+      --btn-shadow: 0 2px 0 #d0c5b7;
+      --btn-hover: #ede0c8;
+      --overlay-bg: rgba(250, 248, 239, 0.94);
+      --modal-bg: #ffffff;
+      --modal-border: #eee4da;
+      --duel-bg: #f3ede6;
+      --duel-border: #d5cbc0;
+    }
+
+    body.dark-theme {
+      --bg-color: #1e1f22;
+      --text-main: #f2f3f5;
+      --text-muted: #949ba4;
+      --card-bg: #2b2d31;
+      --card-label: #80848e;
+      --board-bg: #2b2d31;
+      --cell-bg: #383a40;
+      --brand-bg: #5865f2;
+      --brand-shadow: 0 4px 0 #3c45a5;
+      --btn-bg: #313338;
+      --btn-border: #3f4147;
+      --btn-shadow: 0 2px 0 #232428;
+      --btn-hover: #383a40;
+      --overlay-bg: rgba(30, 31, 34, 0.95);
+      --modal-bg: #2b2d31;
+      --modal-border: #383a40;
+      --duel-bg: #27292d;
+      --duel-border: #383a40;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 12px;
+      overflow: hidden;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .game-wrapper {
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* Header */
+    .header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-box {
+      background: var(--brand-bg);
+      color: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 32px;
+      font-weight: 900;
+      border-radius: 10px;
+      padding: 8px 18px;
+      line-height: 1.1;
+      letter-spacing: 0.5px;
+      box-shadow: var(--brand-shadow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .theme-toggle-btn {
+      background: var(--btn-bg);
+      border: 2px solid var(--btn-border);
+      box-shadow: var(--btn-shadow);
+      color: var(--text-main);
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .theme-toggle-btn:active {
+      transform: translateY(2px);
+      box-shadow: none;
+    }
+
+    .scores-box {
+      display: flex;
+      gap: 8px;
+    }
+
+    .score-card {
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 6px 14px;
+      min-width: 72px;
+      text-align: center;
+      box-shadow: 0 2px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    .score-title {
+      color: var(--card-label);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+    }
+
+    .score-num {
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1.1;
+    }
+
+    /* Mode Bar */
+    .mode-bar {
+      display: flex;
+      width: 100%;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .mode-btn {
+      flex: 1;
+      background: var(--btn-bg);
+      border: 2px solid var(--btn-border);
+      color: var(--text-muted);
+      border-radius: 8px;
+      padding: 7px 0;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .mode-btn.active {
+      background: var(--brand-bg);
+      color: #ffffff;
+      border-color: transparent;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Duel Bar */
+    .duel-bar {
+      width: 100%;
+      background: var(--duel-bg);
+      border: 2px solid var(--duel-border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .duel-bar.hidden {
+      display: none !important;
+    }
+
+    .duel-player {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 40%;
+    }
+
+    .duel-player.opponent {
+      flex-direction: row-reverse;
+      text-align: right;
+    }
+
+    .duel-avatar-wrap {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid #5865f2;
+      flex-shrink: 0;
+      background: #2b2d31;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .duel-avatar-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .duel-meta {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .duel-name {
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .duel-score {
+      font-size: 16px;
+      font-weight: 900;
+      color: #10b981;
+    }
+
+    .opponent .duel-score {
+      color: #f59e0b;
+    }
+
+    .duel-versus {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .vs-badge {
+      background: #ef4444;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 900;
+      border-radius: 6px;
+      padding: 2px 6px;
+      letter-spacing: 1px;
+    }
+
+    .duel-status-text {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Board */
+    .board-container {
+      width: 100%;
+      position: relative;
+    }
+
+    .board {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: var(--board-bg);
+      border-radius: 12px;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: 12px;
+      position: relative;
+      touch-action: none;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+    }
+
+    .grid-cell {
+      background: var(--cell-bg);
+      border-radius: 8px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .tile-container {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      pointer-events: none;
+    }
+
+    /* ДВУХСЛОЙНАЯ СТРУКТУРА ПЛИТКИ (ИСТИННЫЙ 2048 СЛАЙДЕР) */
+    .tile {
+      position: absolute;
+      top: 0;
+      left: 0;
+      border-radius: 8px;
+      z-index: 10;
+      transition: transform 100ms ease-in-out;
+      will-change: transform;
+    }
+
+    .tile-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 900;
+      font-size: 38px;
+      line-height: 1;
+    }
+
+    .tile.tile-new .tile-inner {
+      animation: tile-appear 140ms ease-out;
+    }
+
+    .tile.tile-merged .tile-inner {
+      animation: tile-pop 160ms ease-in-out;
+    }
+
+    /* Палитра плиток (Светлая тема) */
+    .tile-inner-2 { background: #eee4da; color: #776e65; }
+    .tile-inner-4 { background: #ede0c8; color: #776e65; }
+    .tile-inner-8 { background: #f2b179; color: #ffffff; }
+    .tile-inner-16 { background: #f59563; color: #ffffff; font-size: 34px; }
+    .tile-inner-32 { background: #f67c5f; color: #ffffff; font-size: 34px; }
+    .tile-inner-64 { background: #f65e3b; color: #ffffff; font-size: 34px; }
+    .tile-inner-128 { background: #edcf72; color: #ffffff; font-size: 30px; box-shadow: 0 0 10px rgba(237, 207, 114, 0.4); }
+    .tile-inner-256 { background: #edcc61; color: #ffffff; font-size: 30px; box-shadow: 0 0 12px rgba(237, 204, 97, 0.5); }
+    .tile-inner-512 { background: #edc850; color: #ffffff; font-size: 30px; box-shadow: 0 0 14px rgba(237, 200, 80, 0.6); }
+    .tile-inner-1024 { background: #edc53f; color: #ffffff; font-size: 24px; box-shadow: 0 0 16px rgba(237, 197, 63, 0.7); }
+    .tile-inner-2048 { background: #edc22e; color: #ffffff; font-size: 24px; box-shadow: 0 0 20px rgba(237, 194, 46, 0.85); }
+    .tile-inner-super { background: #10b981; color: #ffffff; font-size: 22px; }
+
+    /* Палитра плиток (Тёмная тема) */
+    body.dark-theme .tile-inner-2 { background: #3b3d44; color: #f2f3f5; }
+    body.dark-theme .tile-inner-4 { background: #464850; color: #f2f3f5; }
+    body.dark-theme .tile-inner-8 { background: #ea7a32; color: #ffffff; }
+    body.dark-theme .tile-inner-16 { background: #e85934; color: #ffffff; font-size: 34px; }
+    body.dark-theme .tile-inner-32 { background: #e04434; color: #ffffff; font-size: 34px; }
+    body.dark-theme .tile-inner-64 { background: #d12e2e; color: #ffffff; font-size: 34px; }
+    body.dark-theme .tile-inner-128 { background: #e5a420; color: #ffffff; font-size: 30px; box-shadow: 0 0 10px rgba(229, 164, 32, 0.5); }
+    body.dark-theme .tile-inner-256 { background: #d89617; color: #ffffff; font-size: 30px; box-shadow: 0 0 12px rgba(216, 150, 23, 0.6); }
+    body.dark-theme .tile-inner-512 { background: #cc870f; color: #ffffff; font-size: 30px; box-shadow: 0 0 14px rgba(204, 135, 15, 0.7); }
+    body.dark-theme .tile-inner-1024 { background: #bf7808; color: #ffffff; font-size: 24px; box-shadow: 0 0 16px rgba(191, 120, 8, 0.8); }
+    body.dark-theme .tile-inner-2048 { background: #5865f2; color: #ffffff; font-size: 24px; box-shadow: 0 0 20px rgba(88, 101, 242, 0.9); }
+    body.dark-theme .tile-inner-super { background: #23a55a; color: #ffffff; font-size: 22px; }
+
+    @keyframes tile-appear {
+      0% { opacity: 0; transform: scale(0); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes tile-pop {
+      0% { transform: scale(0.8); }
+      50% { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+
+    /* Controls */
+    .controls-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .btn {
+      font-family: inherit;
+      cursor: pointer;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: 0.8px;
+      padding: 10px 22px;
+      transition: all 0.15s ease;
+      outline: none;
+    }
+
+    .btn-action {
+      background: var(--btn-bg);
+      color: var(--text-main);
+      border: 2px solid var(--btn-border);
+      box-shadow: var(--btn-shadow);
+    }
+
+    .btn-action:hover {
+      background: var(--btn-hover);
+    }
+
+    .btn-action:active {
+      transform: translateY(2px);
+      box-shadow: none;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* Overlays */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: var(--overlay-bg);
+      border-radius: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(3px);
+      z-index: 50;
+    }
+
+    .overlay.hidden {
+      display: none !important;
+    }
+
+    .overlay-box {
+      background: var(--modal-bg);
+      border-radius: 12px;
+      padding: 22px 26px;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+      border: 2px solid var(--modal-border);
+      max-width: 86%;
+    }
+
+    .overlay-title {
+      color: var(--text-main);
+      font-size: 26px;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+
+    .overlay-score {
+      color: var(--text-muted);
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .overlay-score span {
+      color: #10b981;
+      font-size: 22px;
+      font-weight: 900;
+    }
+
+    .menu-box {
+      text-align: left;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--modal-border);
+    }
+
+    .user-avatar-wrap {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid #10b981;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: #2b2d31;
+    }
+
+    .user-avatar-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .user-name {
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--text-main);
+    }
+
+    .user-status {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .menu-hint {
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 400px) {
+      .board {
+        padding: 8px;
+        gap: 8px;
+      }
+      .tile-container {
+        top: 8px;
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+      }
+      .tile-inner {
+        font-size: 28px;
+      }
+      .score-card {
+        padding: 4px 10px;
+        min-width: 60px;
+      }
+      .score-num {
+        font-size: 17px;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="game-wrapper">
-    <!-- Верхний бар: логотип, тема, статистика -->
+    <!-- Верхний бар -->
     <header class="header">
       <div class="header-left">
-        <div class="brand-box">
-          <span class="brand-title">VENOM</span>
-          <span class="brand-number">2048</span>
-        </div>
+        <div class="logo-box">2048</div>
         <button class="theme-toggle-btn" id="btnThemeToggle" title="Сменить тему">
           <span id="themeIcon">🌙</span>
         </button>
@@ -41,10 +584,12 @@
       <button class="mode-btn" id="btnModeDuel">⚔️ Дуэль</button>
     </div>
 
-    <!-- Панель дуэли (скрыта в режиме соло) -->
+    <!-- Панель дуэли (скрыта по умолчанию) -->
     <div class="duel-bar hidden" id="duelBar">
       <div class="duel-player me">
-        <img class="duel-avatar" id="myDuelAvatar" src="" alt="me">
+        <div class="duel-avatar-wrap">
+          <img id="myDuelAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%235865f2'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E" alt="avatar">
+        </div>
         <div class="duel-meta">
           <span class="duel-name" id="myDuelName">Ты</span>
           <span class="duel-score" id="myDuelScore">0</span>
@@ -57,7 +602,9 @@
       </div>
 
       <div class="duel-player opponent">
-        <img class="duel-avatar" id="oppDuelAvatar" src="" alt="opp">
+        <div class="duel-avatar-wrap">
+          <img id="oppDuelAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2380848e'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E" alt="avatar">
+        </div>
         <div class="duel-meta">
           <span class="duel-name" id="oppDuelName">Ожидание...</span>
           <span class="duel-score" id="oppDuelScore">0</span>
@@ -88,25 +635,27 @@
       <div class="overlay hidden" id="menuOverlay">
         <div class="overlay-box menu-box">
           <div class="user-info">
-            <img class="user-avatar" id="userAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%235865f2'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E" alt="avatar">
+            <div class="user-avatar-wrap">
+              <img id="userAvatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%235865f2'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E" alt="avatar">
+            </div>
             <div class="user-text">
               <div class="user-name" id="userName">Игрок</div>
               <div class="user-status" id="userStatus">Discord Activity</div>
             </div>
           </div>
-          <p class="menu-hint">Очки сохраняются в боте и видны в <b>/профиль</b>. В режиме <b>Дуэль</b> соревнуйся с друзьями из войса в реальном времени!</p>
+          <p class="menu-hint">Очки автоматически сохраняются в боте и видны в команде <b>/профиль</b>.</p>
           <button class="btn btn-action" id="btnCloseMenu">ПРОДОЛЖИТЬ</button>
         </div>
       </div>
     </main>
 
-    <!-- Кнопки под полем: NEW GAME и MENU -->
+    <!-- Кнопки под полем -->
     <div class="controls-row">
       <button class="btn btn-action" id="btnNewGame">НОВАЯ ИГРА</button>
       <button class="btn btn-action" id="btnMenu">МЕНЮ</button>
     </div>
 
-    <!-- Подсказка управления -->
+    <!-- Подсказка -->
     <footer class="footer">
       Стрелки / WASD / свайпы пальцем · Одинаковые цифры сливаются
     </footer>
