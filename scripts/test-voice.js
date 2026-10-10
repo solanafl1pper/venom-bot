@@ -175,14 +175,12 @@ console.log('\nОтрисовка Embed-сообщений:');
     isSelf: true,
   });
   const jsonUser = userEmbed.toJSON();
-  check('заголовок личной карточки', jsonUser.title.includes('Вася'));
-  check('поля карточки присутствуют', jsonUser.fields.length >= 3);
-  check('есть поле «Всего в войсе»', jsonUser.fields.some((f) => f.name.includes('Всего в войсе')));
+  check('заголовок личной карточки', jsonUser.type === 17 && JSON.stringify(jsonUser).includes('Вася'));
+  check('есть блок времени', JSON.stringify(jsonUser).includes('Всего в войсе'));
 
   const topEmbed = buildVoiceTopEmbed({ topUsers });
   const jsonTop = topEmbed.toJSON();
-  check('заголовок топа', jsonTop.title.includes('Топ по времени в войсе'));
-  check('есть доска почёта', jsonTop.fields.some((f) => f.name.includes('Зал славы')));
+  check('заголовок топа', jsonTop.type === 17 && JSON.stringify(jsonTop).includes('Топ по времени в войсе'));
 
   const row = buildVoiceRow();
   check('кнопки управления', row.components.length === 2);

@@ -1,8 +1,13 @@
 'use strict';
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, ContainerBuilder, TextDisplayBuilder, MessageFlags } = require('discord.js');
 const { rollNew } = require('../engine');
-const { buildSudEmbed, buildCooldownEmbed, buildTopEmbed, buildHelpEmbed } = require('./embeds');
+const {
+  buildSudContainer,
+  buildCooldownContainer,
+  buildTopContainer,
+  buildHelpContainer,
+} = require('./embeds');
 const { registerWeather } = require('./weather');
 const { registerGame } = require('./game');
 const { handleRANDOM } = require('./random');
@@ -19,7 +24,7 @@ function register(client, storage, tracker) {
 
   const cmdTop = new SlashCommandBuilder()
     .setName('рейтинг')
-    .setDescription('Топ-10 самых судимых участников');
+    .setDescription('Топ самых судимых участников');
 
   const cmdHelp = new SlashCommandBuilder()
     .setName('помощь')
@@ -87,9 +92,13 @@ function register(client, storage, tracker) {
 
     const wait = storage.msUntilNextRoll(user, now);
     if (user.lastRollAt && wait > 0) {
-      const embed = buildCooldownEmbed({ user, mention: `<@${target.id}>`, waitMs: wait });
+      const container = buildCooldownContainer({ user, mention: `<@${target.id}>`, waitMs: wait });
       storage.saveUser(user);
-      await interaction.editReply({ embeds: [embed], allowedMentions: { users: [target.id] } });
+      await interaction.editReply({
+        components: [container],
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { users: [target.id] },
+      });
       return;
     }
 
@@ -100,7 +109,7 @@ function register(client, storage, tracker) {
       try {
         await prev.delete();
       } catch {
-        /* сообщение уже удалено — не мешает */
+        /* сообщение уже удалено */
       }
     }
 
@@ -112,7 +121,7 @@ function register(client, storage, tracker) {
       ? `<@${target.id}> побил ${isSelf ? 'свой ' : ''}рекорд!`
       : `<@${target.id}>${isSelf ? ', ваша судимость' : ''}`;
 
-    const embed = buildSudEmbed({
+    const container = buildSudContainer({
       user,
       mention: ping,
       isRecord: result.isRecord,
@@ -120,18 +129,28 @@ function register(client, storage, tracker) {
     });
 
     const sent = await interaction.editReply({
-      embeds: [embed],
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
       allowedMentions: { users: [target.id] },
     });
     if (sent && sent.id) lastSudMessage.set(key, sent);
   }
 
   async function handleTop(interaction) {
-    await interaction.editReply({ embeds: [buildTopEmbed(storage, storage.top(10))] });
+    const container = buildTopContainer(storage, storage.top(10));
+    await interaction.editReply({
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
+    });
   }
 
   async function handleHelp(interaction) {
-    await interaction.reply({ embeds: [buildHelpEmbed()], ephemeral: true });
+    const container = buildHelpContainer();
+    await interaction.reply({
+      components: [container],
+      flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral],
+      ephemeral: true,
+    });
   }
 
   const needsDefer = new Set(['судимость', 'рейтинг', 'погода', '2048', 'рандом', 'войс', 'войстоп']);
@@ -153,22 +172,31 @@ function register(client, storage, tracker) {
     if (!handler) return;
 
     try {
-      if (needsDefer.has(interaction.commandName)) await interaction.deferReply();
+      if (needsDefer.has(interaction.commandName)) {
+        await interaction.deferReply({ flags: [MessageFlags.IsComponentsV2] });
+      }
       await handler(interaction);
     } catch (err) {
       console.error(`[команда ${interaction.commandName}]`, err.message);
-      const fallback = new EmbedBuilder()
-        .setColor(0xfca5a5)
-        .setTitle('Ошибка')
-        .setDescription('Что-то пошло не так, но это мелочи. Попробуй нажать ещё разок! ✨');
+      const fallback = new ContainerBuilder()
+        .setAccentColor(0xfca5a5)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent('### ⚠️ Ошибка\nЧто-то пошло не так, попробуй ещё раз!'),
+        );
       try {
         if (interaction.deferred || interaction.replied) {
-          await interaction.editReply({ embeds: [fallback] });
+          await interaction.editReply({
+            components: [fallback],
+            flags: MessageFlags.IsComponentsV2,
+          });
         } else {
-          await interaction.reply({ embeds: [fallback], ephemeral: true });
+          await interaction.reply({
+            components: [fallback],
+            flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral],
+          });
         }
       } catch {
-        /* ответ неотправлен — молча игнорируем */
+        /* игнорируем ошибку отправки fallback */
       }
     }
   });

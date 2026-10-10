@@ -114,8 +114,10 @@ console.log('\nМало участников:');
   check('слоты всё равно 5', lineup.rows.length === 5);
   check('кому-то достался свободный слот', lineup.rows.some((r) => r.member === null));
   const { embed } = buildLineupEmbed({ lineup, roleName: 'Капитаны' });
-  check('embed собирается', typeof embed.toJSON().fields[0].value === 'string');
-  check('свободный слот помечен', embed.toJSON().fields[0].value.includes('слот свободен'));
+  const json = embed.toJSON();
+  check('контейнер собирается', json.type === 17);
+  const text = json.components.map((c) => c.content || '').join('\n');
+  check('свободный слот помечен', text.includes('слот свободен'));
 }
 
 console.log('\nEmbed:');
@@ -127,32 +129,29 @@ console.log('\nEmbed:');
     roleName: 'Капитаны',
   });
   const json = embed.toJSON();
-  const text = json.fields[0].value;
+  const text = json.components.map((c) => c.content || '').join('\n');
 
-  check('заголовок про состав', typeof json.title === 'string' && json.title.length > 0);
-  check('пять блоков', text.split('\n\n').length === 5, String(text.split('\n\n').length));
+  check('заголовок про состав', text.includes('Состав на Доту 2'));
+  check('пять строк', (text.match(/•/g) || []).length === 5);
   check('все пять пингов', (text.match(/<\@\d+>/g) || []).length === 5);
   check('передано 5 игроков для пинга', players.length === 5, String(players.length));
-  check('указаны лейны', (text.match(/лайн:/g) || []).length === 5, String((text.match(/лайн:/g) || []).length));
   check('указаны позиции', text.includes('Керри') && text.includes('Мид') && text.includes('Оффлейн'));
-  check('блок в лимите 1024', text.length <= 1024, String(text.length));
-  check('подпись с ролью', json.footer.text.includes('Капитаны'));
+  check('подпись с ролью', text.includes('Капитаны'));
 
-  check('тактик нет', !/Цель|тактик|задач/i.test(JSON.stringify(json)), JSON.stringify(json).slice(0, 200));
-  check(' предметов нет', !/Blink|Glimmer|AKBAR/i.test(JSON.stringify(json)));
-  check('описания пустое', json.description === undefined || json.description === '');
+  check('тактик нет', !/Цель|тактик|задач/i.test(JSON.stringify(json)));
+  check('предметов нет', !/Blink|Glimmer|AKBAR/i.test(JSON.stringify(json)));
 
   console.log('\nПример:\n');
-  console.log(`  ${json.title}`);
-  for (const line of text.split('\n\n')) console.log(`  ${line.replace(/\n/g, '\n  ')}`);
+  console.log(`  ${text.replace(/\n/g, '\n  ')}`);
 }
 
 console.log('\nПустой embed:');
 {
   const json = buildEmptyEmbed(ROLE).toJSON();
-  check('заголовок', json.title === 'Никого не нашлось');
-  check('показывает ID роли', json.description.includes(ROLE));
-  check('подсказывает про .env', json.description.includes('DOTA_ROLE_ID'));
+  const text = json.components.map((c) => c.content || '').join('\n');
+  check('заголовок', text.includes('Никого не нашлось'));
+  check('показывает ID роли', text.includes(ROLE));
+  check('подсказывает про .env', text.includes('DOTA_ROLE_ID'));
 }
 
 console.log('\nID роли из настроек:');

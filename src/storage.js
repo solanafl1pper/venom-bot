@@ -27,7 +27,7 @@ class Storage {
     this.dir = path.dirname(this.filePath);
     this.tmpPath = `${this.filePath}.tmp`;
     this.queue = Promise.resolve();
-    this.data = { version: 1, users: {}, games: {}, meta: { lastDailyReset: null } };
+    this.data = { version: 1, users: {}, games: {}, channels: {}, meta: { lastDailyReset: null } };
   }
 
   load() {
@@ -40,6 +40,7 @@ class Storage {
           version: parsed.version || 1,
           users: parsed.users || {},
           games: parsed.games || {},
+          channels: parsed.channels || {},
           meta: { lastDailyReset: parsed.meta?.lastDailyReset || null, ...(parsed.meta || {}) },
         };
       } catch (err) {
@@ -144,6 +145,18 @@ class Storage {
         return (b.bestCount || 0) - (a.bestCount || 0);
       })
       .slice(0, limit);
+  }
+
+  getChannelTime(channelId) {
+    return this.data.channels?.[String(channelId)] || 0;
+  }
+
+  addChannelTime(channelId, ms) {
+    if (!this.data.channels) this.data.channels = {};
+    const key = String(channelId);
+    this.data.channels[key] = (this.data.channels[key] || 0) + ms;
+    this.flush();
+    return this.data.channels[key];
   }
 
   stats() {

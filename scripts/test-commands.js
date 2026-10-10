@@ -47,8 +47,15 @@ for (const c of client.slashCommands) {
 const deletedMessages = [];
 
 function serialize(payload) {
-  if (!payload || !payload.embeds) return payload;
-  return { ...payload, embeds: payload.embeds.map((e) => (e.toJSON ? e.toJSON() : e)) };
+  if (!payload) return payload;
+  const out = { ...payload };
+  if (payload.embeds) {
+    out.embeds = payload.embeds.map((e) => (e.toJSON ? e.toJSON() : e));
+  }
+  if (payload.components) {
+    out.components = payload.components.map((c) => (c.toJSON ? c.toJSON() : c));
+  }
+  return out;
 }
 
 let messageSeq = 0;
@@ -111,7 +118,7 @@ async function run(name, opts) {
     const st = await run('судимость', { userId: '10' });
     check('ответ отправлен', st.replies + st.edits === 1, `defer=${st.deferred} reply=${st.replies} edit=${st.edits}`);
     check('не было повторного defer', st.deferred === 1, `defer=${st.deferred}`);
-    check('embed приложен', Boolean(st.payload?.embeds?.[0]));
+    check('контейнер приложен', Boolean(st.payload?.components?.[0]));
     const text = JSON.stringify(st.payload);
     check('есть пинг автора', text.includes('<@10>'));
     check('есть поле рекорда', text.includes('Рекорд'));
@@ -150,10 +157,10 @@ async function run(name, opts) {
     const st = await run('рейтинг');
     check('ответ отправлен', st.replies + st.edits === 1, `defer=${st.deferred} reply=${st.replies} edit=${st.edits}`);
     check('defer ровно один', st.deferred === 1, `defer=${st.deferred}`);
-    check('embed приложен', Boolean(st.payload?.embeds?.[0]));
+    check('контейнер приложен', Boolean(st.payload?.components?.[0]));
     check(
       'заголовок рейтинга',
-      st.payload?.embeds?.[0]?.title === '🏆 Топ судимости',
+      JSON.stringify(st.payload).includes('🏆 Топ судимостей'),
       JSON.stringify(st.payload),
     );
   }
@@ -179,10 +186,10 @@ async function run(name, opts) {
       throw new Error('boom');
     };
     const st = await run('рейтинг');
-    check('показан embed с ошибкой', Boolean(st.payload?.embeds?.[0]));
+    check('показан контейнер с ошибкой', Boolean(st.payload?.components?.[0]));
     check(
       'заголовок «Ошибка»',
-      st.payload?.embeds?.[0]?.title === 'Ошибка',
+      JSON.stringify(st.payload).includes('Ошибка'),
       JSON.stringify(st.payload),
     );
     storage.top = saved;

@@ -1,6 +1,13 @@
 'use strict';
 
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const {
+  ContainerBuilder,
+  TextDisplayBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  MessageFlags,
+} = require('discord.js');
 const g = require('../games/game2048');
 
 const TTL_MS = 2 * 60 * 60 * 1000;
@@ -10,23 +17,6 @@ const BUTTONS = [
   { dir: 'down', label: '⬇️', style: ButtonStyle.Secondary },
   { dir: 'right', label: '➡️', style: ButtonStyle.Secondary },
 ];
-
-function buildEmbed(game, best) {
-  const tile = g.bestTile(game.board);
-  const embed = new EmbedBuilder()
-    .setColor(0xa78bfa)
-    .setTitle('✨ 2048 · Уютная залипалка')
-    .setDescription(`\`\`\`\n${g.render(game.board)}\n\`\`\``)
-    .addFields(
-      { name: '🎯 Счёт', value: `${game.score}`, inline: true },
-      { name: '🎲 Ходов', value: `${game.moves}`, inline: true },
-      { name: '⭐ Максимум', value: `${tile}`, inline: true },
-    )
-    .setFooter({ text: best ? `личный рекорд: ${best} · играем на чилле` : 'рекорд пока пустой · задай планку!' })
-    .setTimestamp();
-
-  return embed;
-}
 
 function buildRow(prefix, disabled = false) {
   return new ActionRowBuilder().addComponents(
@@ -40,7 +30,6 @@ function buildRow(prefix, disabled = false) {
   );
 }
 
-/** Вторая строка: закончить и начать заново. */
 function buildControlRow(prefix, disabled = false) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -56,7 +45,26 @@ function buildControlRow(prefix, disabled = false) {
   );
 }
 
-function buildFinishedEmbed(game, best, reason) {
+function buildGameContainer(game, best, prefix, disabled = false) {
+  const tile = g.bestTile(game.board);
+  const container = new ContainerBuilder().setAccentColor(0xa78bfa);
+
+  const text = [
+    '### 🎮 2048',
+    '```',
+    g.render(game.board),
+    '```',
+    `🎯 Счёт: **${game.score}** · ⭐ Макс: **${tile}** · 🎲 Ходов: **${game.moves}**${best ? ` · 🏆 Рекорд: **${best}**` : ''}`,
+  ].join('\n');
+
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+  if (prefix) {
+    container.addActionRowComponents(buildRow(prefix, disabled), buildControlRow(prefix, disabled));
+  }
+  return container;
+}
+
+function buildFinishedGameContainer(game, best, reason) {
   const tile = g.bestTile(game.board);
   const won = tile >= g.TARGET;
   const headline =
@@ -66,17 +74,18 @@ function buildFinishedEmbed(game, best, reason) {
         ? '🎉 Победа! Ты собрал 2048!'
         : '☕ Ходов больше нет — хорошая игра!';
 
-  return new EmbedBuilder()
-    .setColor(won ? 0xfde047 : 0xfca5a5)
-    .setTitle(headline)
-    .setDescription(`\`\`\`\n${g.render(game.board)}\n\`\`\``)
-    .addFields(
-      { name: '🎯 Итоговый счёт', value: `${game.score}`, inline: true },
-      { name: '⭐ Максимум', value: `${tile}`, inline: true },
-      { name: '🎲 Сделано ходов', value: `${game.moves}`, inline: true },
-    )
-    .setFooter({ text: `личный рекорд: ${best ?? game.score} · жми /2048 для новой игры` })
-    .setTimestamp();
+  const container = new ContainerBuilder().setAccentColor(won ? 0xfde047 : 0xfca5a5);
+
+  const text = [
+    `### ${headline}`,
+    '```',
+    g.render(game.board),
+    '```',
+    `🎯 Итог: **${game.score}** · ⭐ Макс: **${tile}** · 🏆 Рекорд: **${best ?? game.score}**`,
+  ].join('\n');
+
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+  return container;
 }
 
 function registerGame(client, storage) {
@@ -108,10 +117,12 @@ function registerGame(client, storage) {
     const userId = interaction.user.id;
     const game = g.createGame();
     const best = storage.bestScore('2048', userId);
+    const prefix = `g2048:${userId}`;
 
+    const container = buildGameContainer(game, best, prefix);
     const message = await interaction.editReply({
-      embeds: [buildEmbed(game, best)],
-      components: [buildRow(`g2048:${userId}`), buildControlRow(`g2048:${userId}`)],
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
     });
 
     remember(message.id, userId, game);
@@ -119,30 +130,34 @@ function registerGame(client, storage) {
   };
 
   function collect(message, userId) {
+    const prefix = `g2048:${userId}`;
     const collector = message.createMessageComponentCollector({
-      filter: (i) => i.customId.startsWith(`g2048:${userId}:`),
+      filter: (i) => i.customId.startsWith(`${prefix}:`),
       time: TTL_MS,
     });
 
     collector.on('collect', async (i) => {
       const entry = games.get(message.id);
       if (!entry) {
-        await i.reply({ content: 'Игра уже закрыта. Начни новую: /2048', ephemeral: true }).catch(() => {});
+        const closed = new ContainerBuilder()
+          .setAccentColor(0xfca5a5)
+          .addTextDisplayComponents(new TextDisplayBuilder().setContent('### ⏳ Партия закрыта\nНачни новую: **/2048**'));
+        await i.reply({ components: [closed], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] }).catch(() => {});
         return;
       }
 
       const dir = i.customId.split(':')[2];
       await i.deferUpdate().catch(() => {});
 
-      // Кнопки управления: завершить или начать заново.
       if (dir === 'end' || dir === 'restart') {
         stopTimer(message.id);
         const best = saveBest(userId, entry.game.score);
 
         if (dir === 'end') {
+          const finished = buildFinishedGameContainer(entry.game, best, 'end');
           await message.edit({
-            embeds: [buildFinishedEmbed(entry.game, best, 'end')],
-            components: [buildRow(`g2048:${userId}`, true), buildControlRow(`g2048:${userId}`, true)],
+            components: [finished],
+            flags: MessageFlags.IsComponentsV2,
           });
           return;
         }
@@ -150,17 +165,20 @@ function registerGame(client, storage) {
         entry.game = g.createGame();
         games.set(message.id, { ...entry, game: entry.game });
         remember(message.id, userId, entry.game);
+        const fresh = buildGameContainer(entry.game, best, prefix);
         await message.edit({
-          embeds: [buildEmbed(entry.game, best)],
-          components: [buildRow(`g2048:${userId}`), buildControlRow(`g2048:${userId}`)],
+          components: [fresh],
+          flags: MessageFlags.IsComponentsV2,
         });
         return;
       }
 
       const result = g.applyMove(entry.game, dir);
       if (!result.changed) {
-        // Ход не изменил поле — сообщаем и не тратим попытку.
-        await i.followUp({ content: 'Так поле не сдвинется. Попробуй другую стрелку.', ephemeral: true }).catch(() => {});
+        const hint = new ContainerBuilder()
+          .setAccentColor(0xfca5a5)
+          .addTextDisplayComponents(new TextDisplayBuilder().setContent('Так поле не сдвинется. Попробуй другую стрелку.'));
+        await i.followUp({ components: [hint], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] }).catch(() => {});
         return;
       }
 
@@ -169,16 +187,18 @@ function registerGame(client, storage) {
 
       if (result.gameOver) {
         stopTimer(message.id);
+        const over = buildFinishedGameContainer(entry.game, best, 'over');
         await message.edit({
-          embeds: [buildFinishedEmbed(entry.game, best, 'over')],
-          components: [buildRow(`g2048:${userId}`, true), buildControlRow(`g2048:${userId}`, true)],
+          components: [over],
+          flags: MessageFlags.IsComponentsV2,
         });
         return;
       }
 
+      const updated = buildGameContainer(entry.game, best, prefix);
       await message.edit({
-        embeds: [buildEmbed(entry.game, best)],
-        components: [buildRow(`g2048:${userId}`), buildControlRow(`g2048:${userId}`)],
+        components: [updated],
+        flags: MessageFlags.IsComponentsV2,
       });
     });
 
@@ -195,9 +215,11 @@ function registerGame(client, storage) {
 
 module.exports = {
   registerGame,
-  buildEmbed,
+  buildGameContainer,
+  buildFinishedGameContainer,
+  buildEmbed: (game, best) => buildGameContainer(game, best),
+  buildFinishedEmbed: (game, best, reason) => buildFinishedGameContainer(game, best, reason),
   buildRow,
   buildControlRow,
-  buildFinishedEmbed,
   TTL_MS,
 };

@@ -139,25 +139,32 @@ console.log('\nРейтинг: лучший результат за 3 дня:');
   check('без замеров берётся текущий результат', ratingFor(noSamples, Date.now()) === rating(noSamples.current));
 }
 
-console.log('\nEmbed\'ы:');
+console.log('\nComponents V2 (Эмбеды v2):');
 try {
-  const embed = buildSudEmbed({ user, mention: '<@1> побил рекорд!', isRecord: true, count: user.current.length });
-  const json = embed.toJSON();
-  check('судимость: есть поля', json.fields.length >= 4, `полей ${json.fields.length}`);
-  check('судимость: есть автор', typeof json.author?.name === 'string');
-  check('судимость: поле «Статьи»', json.fields.some((f) => f.name.includes('Статьи')));
-  check('судимость: поле рекорда', json.fields.some((f) => f.name.includes('Рекорд')));
-  check('судимость: баннер нового рекорда', json.fields.some((f) => f.name.includes('НОВЫЙ РЕКОРД')));
+  const container = buildSudEmbed({ user, mention: '<@1> побил рекорд!', isRecord: true, count: user.current.length });
+  const json = container.toJSON();
+  check('судимость: тип контейнер (17)', json.type === 17);
+  const text = json.components.map((c) => c.content || '').join('\n');
+  check('судимость: заголовок', text.includes('Судимость'));
+  check('судимость: статьи в тексте', text.includes('ст.'));
+  check('судимость: строка рекорда', text.includes('Рекорд'));
+  check('судимость: баннер нового рекорда', text.includes('Новый рекорд'));
 
   const cool = buildCooldownEmbed({ user, mention: '<@1>', waitMs: 12 * 60 * 1000 }).toJSON();
-  check('кулдаун: поле «До новой попытки»', cool.fields.some((f) => f.name.includes('До новой попытки')));
-  check('кулдаун: заголовок про кулдаун', String(cool.description).includes('Кулдаун'));
+  const coolText = cool.components.map((c) => c.content || '').join('\n');
+  check('кулдаун: тип контейнер (17)', cool.type === 17);
+  check('кулдаун: заголовок про кулдаун', coolText.includes('Кулдаун'));
 
-  check('рейтинг: топ', buildTopEmbed(storage, storage.top(10)).toJSON().description.length > 0);
-  check('помощь: команды', buildHelpEmbed().toJSON().fields.length === 10, `полей ${buildHelpEmbed().toJSON().fields.length}`);
+  const top = buildTopEmbed(storage, storage.top(10)).toJSON();
+  const topText = top.components.map((c) => c.content || '').join('\n');
+  check('рейтинг: топ', topText.includes('Топ судимостей'));
+
+  const help = buildHelpEmbed().toJSON();
+  const helpText = help.components.map((c) => c.content || '').join('\n');
+  check('помощь: команды', helpText.includes('Команды бота'));
 } catch (err) {
   failures += 1;
-  console.error('  FAIL сборка embed:', err.message);
+  console.error('  FAIL сборка V2:', err.message);
 }
 
 console.log('\nСклонения:');

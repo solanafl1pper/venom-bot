@@ -1,6 +1,10 @@
 'use strict';
 
-const { EmbedBuilder } = require('discord.js');
+const {
+  ContainerBuilder,
+  TextDisplayBuilder,
+  MessageFlags,
+} = require('discord.js');
 const { getWeather } = require('../weather');
 
 const DEFAULT_CITY = () => process.env.WEATHER_CITY || 'Москва';
@@ -18,33 +22,31 @@ function pickTip(rng = Math.random) {
   return TIPS[Math.floor(rng() * TIPS.length)];
 }
 
-function buildWeatherEmbed(weather, requested) {
-  const embed = new EmbedBuilder()
-    .setColor(0x38bdf8)
-    .setTitle(`${weather.emoji} ${weather.city}`)
-    .addFields(
-      { name: '🌡️ За окном', value: `**${weather.temp}**\n${weather.text}`, inline: true },
-      { name: '📍 Локация', value: requested ? `запрос: **${requested}**` : 'город по умолчанию', inline: true },
-    )
-    .setFooter({ text: pickTip() })
-    .setTimestamp();
+function buildWeatherContainer(weather, requested) {
+  const container = new ContainerBuilder().setAccentColor(0x38bdf8);
+  const text = [
+    `### ${weather.emoji} ${weather.city} · **${weather.temp}**`,
+    `${weather.text}${requested ? ` · *запрос: ${requested}*` : ''}`,
+  ].join('\n');
 
-  return embed;
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+  return container;
 }
 
-function buildErrorEmbed(city, err) {
-  return new EmbedBuilder()
-    .setColor(0xfca5a5)
-    .setTitle('🌧️ Ой, не вышло')
-    .setDescription(
-      `Не получилось узнать погоду${city ? ` для «${city}»` : ''}.\n` +
-        'Проверь, правильно ли написан город, или попробуй чуть позже.\n' +
-        `Ответ погодного сервера: \`${err}\``,
-    );
+function buildErrorContainer(city, err) {
+  const container = new ContainerBuilder().setAccentColor(0xfca5a5);
+  const text = [
+    `### 🌧️ Погода не найдена`,
+    `Не удалось узнать погоду${city ? ` для «${city}»` : ''}.`,
+    err ? `\`${err}\`` : 'Попробуй позже.',
+  ].join('\n');
+
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+  return container;
 }
 
 function registerWeather(client) {
-  client.handleWeather = async (interaction, storage) => {
+  client.handleWeather = async (interaction) => {
     const requested = (interaction.options?.getString?.('город') || '').trim();
     const city = requested || DEFAULT_CITY();
 
@@ -53,33 +55,43 @@ function registerWeather(client) {
       weather = await getWeather(city);
     } catch (err) {
       console.error('[погода]', err.message);
+      const container = buildErrorContainer(city, err.message);
       if (interaction.deferred || interaction.replied) {
-        await interaction.editReply({ embeds: [buildErrorEmbed(city, err.message)] });
+        await interaction.editReply({ components: [container], flags: MessageFlags.IsComponentsV2 });
       } else {
-        await interaction.reply({ embeds: [buildErrorEmbed(city, err.message)], ephemeral: true });
+        await interaction.reply({ components: [container], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] });
       }
       return;
     }
 
     if (!weather) {
       const msg = 'Погодный сервис молчит. Попробуй через минуту.';
+      const container = buildErrorContainer(city, msg);
       if (interaction.deferred || interaction.replied) {
-        await interaction.editReply({ embeds: [buildErrorEmbed(city, msg)] });
+        await interaction.editReply({ components: [container], flags: MessageFlags.IsComponentsV2 });
       } else {
-        await interaction.reply({ embeds: [buildErrorEmbed(city, msg)], ephemeral: true });
+        await interaction.reply({ components: [container], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] });
       }
       return;
     }
 
-    const embed = buildWeatherEmbed(weather, requested);
+    const container = buildWeatherContainer(weather, requested);
     if (interaction.deferred || interaction.replied) {
-      await interaction.editReply({ embeds: [embed] });
+      await interaction.editReply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     } else {
-      await interaction.reply({ embeds: [embed] });
+      await interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
     }
   };
 
   return client.handleWeather;
 }
 
-module.exports = { registerWeather, buildWeatherEmbed, buildErrorEmbed, pickTip, TIPS };
+module.exports = {
+  registerWeather,
+  buildWeatherContainer,
+  buildErrorContainer,
+  buildWeatherEmbed: buildWeatherContainer,
+  buildErrorEmbed: buildErrorContainer,
+  pickTip,
+  TIPS,
+};

@@ -169,9 +169,11 @@ console.log('\nБез картинки бот всё равно отвечает
 
   const withoutImage = { ...t.TRIGGERS.find((x) => x.id === 'sheep'), image: null };
   const built = t.buildEmbed(withoutImage, 'тест', '<@1>');
-  check('embed собирается без картинки', Boolean(built.embed));
-  check('embed без ссылки на файл', built.embed.toJSON().image === undefined);
-  check('текст на месте', built.embed.toJSON().description.includes('тест'));
+  const target = built.container || built.embed;
+  check('embed собирается без картинки', Boolean(target));
+  const withoutImgJson = target.toJSON();
+  check('embed без ссылки на файл', !withoutImgJson.components?.some((c) => c.type === 12));
+  check('текст на месте', JSON.stringify(withoutImgJson).includes('тест'));
 }
 
 console.log('\nCooldown и обработчик событий:');
@@ -183,7 +185,9 @@ function makeClient() {
   const channel = {
     messages: { cache: new Map() },
     send: async (p) => {
-      const payload = { ...p, embeds: p.embeds.map((e) => (e.toJSON ? e.toJSON() : e)) };
+      const payload = { ...p };
+      if (p.embeds) payload.embeds = p.embeds.map((e) => (e.toJSON ? e.toJSON() : e));
+      if (p.components) payload.components = p.components.map((c) => (c.toJSON ? c.toJSON() : c));
       sent.push(payload);
       return { ...payload, delete: async () => {} };
     },
@@ -208,7 +212,7 @@ function makeMessage(content, authorId = '5', bot = false, channel = null) {
   client.emit('messageCreate', makeMessage('р.п.п', '5', false, channel));
   await new Promise((r) => setImmediate(r));
   check('ответ на «р.п.п»', sent.length === 1, `отправлено ${sent.length}`);
-  check('подпись РПП', sent[0]?.embeds?.[0]?.footer?.text.includes('РПП'), JSON.stringify(sent[0]?.embeds?.[0]?.footer));
+  check('подпись РПП', JSON.stringify(sent[0]).includes('РПП'), JSON.stringify(sent[0]));
   check('пинг автора', JSON.stringify(sent[0]).includes('<@5>'));
 
   client.emit('messageCreate', makeMessage('ЗОВ', '5', false, channel));
@@ -217,33 +221,33 @@ function makeMessage(content, authorId = '5', bot = false, channel = null) {
 
   client.emit('messageCreate', makeMessage('3 слова победы', '6', false, channel));
   await new Promise((r) => setImmediate(r));
-  check('«3 слова победы» отдельной подписью', sent[1]?.embeds?.[0]?.footer?.text.includes('3 слова'));
+  check('«3 слова победы» отдельной подписью', JSON.stringify(sent[1]).includes('3 слова победы'));
   check('другой автор проходит', sent.length === 2, `отправлено ${sent.length}`);
 
   client.emit('messageCreate', makeMessage('RPP', '7', false, channel));
   await new Promise((r) => setImmediate(r));
   check('латинское RPP поймано', sent.length === 3, `отправлено ${sent.length}`);
 
-client.emit('messageCreate', makeMessage('Аллах Акбар', '8', false, channel));
+  client.emit('messageCreate', makeMessage('Аллах Акбар', '8', false, channel));
   await new Promise((r) => setImmediate(r));
-  check('«Аллах Акбар» → бараны', sent[3]?.embeds?.[0]?.description.includes('🐏'), JSON.stringify(sent[3]?.embeds?.[0]?.description));
-  check('в ответе бараны', sent[3]?.embeds?.[0]?.description.includes('🐏'));
-  check('аллах не выдал ZOV-заголовок', !sent[3]?.embeds?.[0]?.description.includes('ПУТИН'));
+  check('«Аллах Акбар» → бараны', JSON.stringify(sent[3]).includes('🐏'));
+  check('в ответе бараны', JSON.stringify(sent[3]).includes('🐏'));
+  check('аллах не выдал ZOV-заголовок', !JSON.stringify(sent[3]).includes('ПУТИН'));
   check('аллах не выдал оскорблений', !/пидр/i.test(JSON.stringify(sent[3])));
 
   check(
     'embed ссылается на гифку по URL',
-    sent[3]?.embeds?.[0]?.image?.url === SHEEP_IMAGE_URL,
-    JSON.stringify(sent[3]?.embeds?.[0]?.image),
+    JSON.stringify(sent[3]).includes(SHEEP_IMAGE_URL),
+    JSON.stringify(sent[3]),
   );
   check('вложения не шлются', !Array.isArray(sent[3]?.files) || sent[3].files.length === 0);
 
-  check('embed РПП без картинки', sent[0]?.embeds?.[0]?.image === undefined);
+  check('embed РПП без картинки', !JSON.stringify(sent[0]).includes('media'));
 
   client.emit('messageCreate', makeMessage('победа', '9', false, channel));
   await new Promise((r) => setImmediate(r));
-  check('«победа» отдельным триггером', sent[4]?.embeds?.[0]?.footer?.text.includes('победа'), JSON.stringify(sent[4]?.embeds?.[0]?.footer));
-  check('у победы есть своя гифка', sent[4]?.embeds?.[0]?.image?.url === VICTORY_IMAGE_URL, JSON.stringify(sent[4]?.embeds?.[0]?.image));
+  check('«победа» отдельным триггером', JSON.stringify(sent[4]).includes('победа'));
+  check('у победы есть своя гифка', JSON.stringify(sent[4]).includes(VICTORY_IMAGE_URL));
 
   client.emit('messageCreate', makeMessage('3 слова победы', '9', true, channel));
   await new Promise((r) => setImmediate(r));

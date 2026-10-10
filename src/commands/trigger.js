@@ -5,14 +5,20 @@
  * ВАЖНО: требуется включённый Message Content Intent в Developer Portal.
  */
 
-const { EmbedBuilder } = require('discord.js');
+const {
+  ContainerBuilder,
+  TextDisplayBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
+  MessageFlags,
+} = require('discord.js');
 
 const COOLDOWN_MS = 1_200;
 const CLEAR_AFTER_MS = 30_000;
 
 const SHEEP = '🐏🐏🐏';
 
-// Картинка для триггера «аллах». Встраивается ссылкой, файл в проект не нужен.
+// Картинка для триггера «аллах».
 const SHEEP_IMAGE_URL =
   'https://media.discordapp.net/attachments/944945384550199296/1010517985829584946/1659812492677.gif';
 
@@ -76,12 +82,9 @@ const SEP = '[\\s._\\-*!?/\\\\]';
 const RPP = `${PRE}р${SEP}*п${SEP}*п${POST}`;
 const RRR = `${PRE}р(?:${SEP}*р){2,}${POST}`;
 const ZOV = `${PRE}з${SEP}*о${SEP}*в${POST}`;
-// Падежные формы победы по белому списку окончаний, чтобы «победа» ловилась,
-// а «победитель» и «победач» — нет.
+// Падежные формы победы
 const POBEDA = `${PRE}побед(?:ами|ах|ами|ей|ий|ии|ию|ия|а|у|ы|ой|е|ов)?${POST}`;
 const THREE = `${PRE}(3|з)${SEP}*слов(?:ами|ам|ах|а|ов|у|е)?${SEP}*побед`;
-// «ллах» с двумя «л» в начале намеренно не ловится: это опечатка,
-// а не призыв. Ловим «алах», «аллах» и падежные формы от них.
 const ALLAH = `${PRE}а(?:ла|лла)х(?:ами|ом|ах|ах|а|у|ы|е|и)?${POST}`;
 const AKBAR = `${PRE}акбар${POST}`;
 const AKABAR = `${PRE}акабар${POST}`;
@@ -144,16 +147,25 @@ function matchTrigger(content) {
   return null;
 }
 
-function buildEmbed(trigger, message, mention) {
-  const embed = new EmbedBuilder()
-    .setColor(trigger.color)
-    .setDescription(`${mention}\n\n${message}`)
-    .setFooter({ text: `услышали в чате: «${trigger.label}»` })
-    .setTimestamp();
+function buildTriggerContainer(trigger, message, mention) {
+  const container = new ContainerBuilder().setAccentColor(trigger.color);
 
-  if (trigger.image) embed.setImage(trigger.image);
+  const text = [
+    `### ${trigger.label} · ${mention}`,
+    message,
+  ].join('\n');
 
-  return { embed };
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+
+  if (trigger.image) {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder().setURL(trigger.image),
+      ),
+    );
+  }
+
+  return { container, embed: container };
 }
 
 function register(client) {
@@ -179,8 +191,12 @@ function register(client) {
     }
 
     try {
-      const { embed } = buildEmbed(trigger, pickMessage(trigger.messages), `<@${message.author.id}>`);
-      const payload = { embeds: [embed], allowedMentions: { users: [message.author.id] } };
+      const { container } = buildTriggerContainer(trigger, pickMessage(trigger.messages), `<@${message.author.id}>`);
+      const payload = {
+        components: [container],
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { users: [message.author.id] },
+      };
 
       const sent = await message.channel.send(payload);
       if (sent && channel?.messages?.cache) {
@@ -207,7 +223,8 @@ module.exports = {
   matchTrigger,
   normalize,
   pickMessage,
-  buildEmbed,
+  buildTriggerContainer,
+  buildEmbed: buildTriggerContainer,
   TRIGGERS,
   VICTORY_MESSAGES,
   SHEEP_MESSAGES,

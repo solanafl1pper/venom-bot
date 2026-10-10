@@ -1,6 +1,11 @@
 'use strict';
 
-const { EmbedBuilder } = require('discord.js');
+const {
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  MessageFlags,
+} = require('discord.js');
 const dota = require('../data/dota');
 const { StratzClient } = require('../stratz');
 
@@ -58,41 +63,40 @@ function buildLineup(members, rng = Math.random, stratzByPosition = null) {
   return { rows, source };
 }
 
-function buildLineupEmbed({ lineup, roleName }) {
+function buildLineupContainer({ lineup, roleName }) {
   const { rows, source } = lineup;
+  const container = new ContainerBuilder().setAccentColor(0x818cf8);
 
   const lines = rows.map((row) => {
-    const who = row.member ? `<@${row.member.id}>` : 'слот свободен';
-    return `${row.pos.emoji} **${row.hero}** — ${row.pos.label}\n　 ↳ лайн: *${row.pos.lane}* · ${who}`;
+    const who = row.member ? `<@${row.member.id}>` : '*слот свободен*';
+    return `• ${row.pos.emoji} **${row.hero}** (${row.pos.label}) — ${who} · *${row.pos.lane}*`;
   });
 
   const players = rows.filter((r) => r.member).map((r) => r.member.id);
 
-  const embed = new EmbedBuilder()
-    .setColor(0x818cf8)
-    .setTitle('🎮 Состав на Доту · Играем вместе!')
-    .addFields({ name: '✨ Распределение по позициям', value: lines.join('\n\n') })
-    .setFooter({
-      text:
-        (source === 'stratz' ? 'герои подобраны по мете Stratz' : 'герои из проверенного пула') +
-        (roleName ? ` · роль «${roleName}»` : '') +
-        ' · без тильта и на победку',
-    })
-    .setTimestamp();
+  const content = [
+    '### 🎮 Состав на Доту 2',
+    lines.join('\n'),
+  ].join('\n');
 
-  return { embed, players };
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(content));
+  container.addSeparatorComponents(new SeparatorBuilder().setDivider(true));
+
+  const metaText = `📊 Источник: *${source === 'stratz' ? 'Stratz мета' : 'проверенный пул'}*${roleName ? ` · роль: *${roleName}*` : ''}`;
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(metaText));
+
+  return { container, embed: container, players };
 }
 
-function buildEmptyEmbed(roleId) {
-  return new EmbedBuilder()
-    .setColor(0xfca5a5)
-    .setTitle('Никого не нашлось')
-    .setDescription(
-      'Для сбора команды нужны участники с ролью, а сейчас никого с ней нет на сервере.\n' +
-        `ID роли: \`${roleId}\`\n\n` +
-        'Проверь, что роль выдана ребятам, и её ID совпадает с `DOTA_ROLE_ID` в файле `.env`.',
-    )
-    .setFooter({ text: 'ждём сбор состава' });
+function buildEmptyContainer(roleId) {
+  const container = new ContainerBuilder().setAccentColor(0xfca5a5);
+  const text = [
+    '### ⚠️ Никого не нашлось',
+    `Для сбора команды нужны участники с ролью \`${roleId}\`.`,
+    'Проверь настройки роли в `.env` (DOTA_ROLE_ID).',
+  ].join('\n');
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
+  return container;
 }
 
 async function handleRANDOM(interaction) {
@@ -102,18 +106,26 @@ async function handleRANDOM(interaction) {
   const members = membersWithRole(guild, roleId);
 
   if (members.length === 0) {
-    const embed = buildEmptyEmbed(roleId);
-    if (interaction.deferred || interaction.replied) await interaction.editReply({ embeds: [embed] });
-    else await interaction.reply({ embeds: [embed], ephemeral: true });
+    const container = buildEmptyContainer(roleId);
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    } else {
+      await interaction.reply({ components: [container], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] });
+    }
     return;
   }
 
-  const { embed, players } = buildLineupEmbed({
+  const { container, players } = buildLineupContainer({
     lineup: buildLineup(members, Math.random, await stratz.load()),
     roleName: role?.name,
   });
 
-  const payload = { embeds: [embed], allowedMentions: { users: players } };
+  const payload = {
+    components: [container],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { users: players },
+  };
+
   if (interaction.deferred || interaction.replied) await interaction.editReply(payload);
   else await interaction.reply(payload);
 }
@@ -123,8 +135,10 @@ module.exports = {
   membersWithRole,
   buildLineup,
   heroesForPosition,
-  buildLineupEmbed,
-  buildEmptyEmbed,
+  buildLineupContainer,
+  buildEmptyContainer,
+  buildLineupEmbed: buildLineupContainer,
+  buildEmptyEmbed: buildEmptyContainer,
   stratz,
   ROLE_ID,
 };

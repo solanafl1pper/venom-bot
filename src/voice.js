@@ -166,6 +166,9 @@ class VoiceTracker {
     const user = this.storage.ensureUser(userId, { guildId: session.guildId, username: session.username });
     user.voiceTimeMs = (user.voiceTimeMs || 0) + delta;
     user.lastVoiceAt = now;
+    if (delta > 0 && session.channelId) {
+      this.storage.addChannelTime(session.channelId, delta);
+    }
     this.activeSessions.delete(userId);
     this.storage.saveUser(user);
   }
@@ -180,6 +183,9 @@ class VoiceTracker {
     const delta = Math.max(0, now - session.lastFlushedAt);
     const user = this.storage.ensureUser(userId, { guildId, username });
     user.voiceTimeMs = (user.voiceTimeMs || 0) + delta;
+    if (delta > 0 && session.channelId) {
+      this.storage.addChannelTime(session.channelId, delta);
+    }
     session.lastFlushedAt = now;
     session.channelId = newChannelId;
     session.guildId = guildId;
@@ -193,6 +199,9 @@ class VoiceTracker {
       if (delta > 0) {
         const user = this.storage.ensureUser(userId, { guildId: session.guildId, username: session.username });
         user.voiceTimeMs = (user.voiceTimeMs || 0) + delta;
+        if (session.channelId) {
+          this.storage.addChannelTime(session.channelId, delta);
+        }
         session.lastFlushedAt = now;
         changed = true;
       }
@@ -200,6 +209,43 @@ class VoiceTracker {
     if (changed) {
       this.storage.flush();
     }
+  }
+
+  getChannelLiveTime(channelId) {
+    const stored = this.storage.getChannelTime(channelId);
+    let activeDelta = 0;
+    const now = Date.now();
+    for (const session of this.activeSessions.values()) {
+      if (session.channelId === String(channelId)) {
+        activeDelta += Math.max(0, now - session.lastFlushedAt);
+      }
+    }
+    return stored + activeDelta;
+  }
+
+  getGuildVoiceChannels(guild) {
+    if (!guild?.channels?.cache) return [];
+    const channels = [];
+    for (const c of guild.channels.cache.values()) {
+      if (c.isVoiceBased?.()) {
+        const activeMembers = c.members
+          ? [...c.members.values()].filter((m) => !m.user?.bot).map((m) => `<@${m.id}>`)
+          : [];
+        const totalMs = this.getChannelLiveTime(c.id);
+        channels.push({
+          id: c.id,
+          name: c.name,
+          totalMs,
+          activeMembers,
+        });
+      }
+    }
+    return channels.sort((a, b) => {
+      if (a.activeMembers.length !== b.activeMembers.length) {
+        return b.activeMembers.length - a.activeMembers.length;
+      }
+      return b.totalMs - a.totalMs;
+    });
   }
 
   getUserLiveStats(userId) {
