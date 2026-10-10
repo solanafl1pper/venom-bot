@@ -1111,6 +1111,127 @@
       font-weight: 800;
       color: var(--text-muted);
     }
+
+    /* Snake Start Menu Overlay */
+    .snake-menu-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      max-width: 340px;
+      padding: 22px 18px;
+    }
+
+    .snake-menu-badge {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      text-transform: uppercase;
+    }
+
+    .snake-menu-record-box {
+      width: 100%;
+      background: var(--duel-bg);
+      border: 2px solid var(--duel-border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-sizing: border-box;
+      margin: 4px 0 6px 0;
+    }
+
+    .snake-record-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+    }
+
+    .snake-record-val {
+      font-size: 18px;
+      font-weight: 900;
+      color: #10b981;
+    }
+
+    .snake-menu-actions {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .snake-btn-play {
+      background: #10b981 !important;
+      color: #ffffff !important;
+      font-size: 15px !important;
+      padding: 12px 16px !important;
+      border-radius: 10px !important;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4) !important;
+      transition: transform 0.12s ease, filter 0.12s ease !important;
+    }
+
+    .snake-btn-play:hover {
+      transform: translateY(-2px) !important;
+      filter: brightness(1.08) !important;
+    }
+
+    .snake-btn-duel-menu {
+      border: 2px solid var(--btn-border) !important;
+      background: var(--btn-bg) !important;
+      color: var(--text-main) !important;
+      font-size: 13px !important;
+      padding: 10px 14px !important;
+      border-radius: 10px !important;
+    }
+
+    .snake-speed-selector {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 4px;
+      width: 100%;
+    }
+
+    .speed-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+    }
+
+    .speed-pill {
+      background: var(--btn-bg);
+      border: 1px solid var(--btn-border);
+      color: var(--text-muted);
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+
+    .speed-pill.active {
+      background: #10b981;
+      color: #ffffff;
+      border-color: #10b981;
+      box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+    }
+
+    .snake-controls-hint {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin: 4px 0 0 0;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -1426,6 +1547,39 @@
       <main class="snake-board-container">
         <canvas id="snakeCanvas"></canvas>
 
+        <!-- МЕНЮ СТАРТА ЗМЕЙКИ -->
+        <div class="overlay" id="snakeMenuOverlay">
+          <div class="overlay-box snake-menu-box">
+            <div class="snake-menu-badge">🐍 РЕЖИМ: ЗМЕЙКА</div>
+            <h2 class="overlay-title" style="margin-top: 4px; font-size: 24px;">ЗМЕЙКА</h2>
+            <p class="overlay-desc" style="margin-bottom: 10px;">Собирай яблоки и бей рекорды в соло или сражайся в дуэли на одной карте!</p>
+
+            <div class="snake-menu-record-box">
+              <span class="snake-record-label">🏆 ТВОЙ РЕКОРД В ЗМЕЙКЕ:</span>
+              <span class="snake-record-val" id="snakeMenuRecordVal">0</span>
+            </div>
+
+            <div class="snake-menu-actions">
+              <button class="btn btn-action primary snake-btn-play" id="btnSnakeStartGame">
+                🟢 НАЧАТЬ ИГРУ
+              </button>
+              <button class="btn btn-action snake-btn-duel-menu" id="btnSnakeMenuDuel">
+                ⚔️ ДУЭЛЬ НА 1 КАРТЕ
+              </button>
+            </div>
+
+            <div class="snake-speed-selector">
+              <span class="speed-label">Скорость:</span>
+              <button class="speed-pill active" id="btnSpeedNormal" data-speed="normal">Обычная</button>
+              <button class="speed-pill" id="btnSpeedFast" data-speed="fast">Быстрая ⚡</button>
+            </div>
+
+            <p class="snake-controls-hint">
+              🎮 Управление: стрелки / WASD / свайпы / кнопки снизу
+            </p>
+          </div>
+        </div>
+
         <!-- ЛОББИ ДУЭЛИ ЗМЕЙКИ -->
         <div class="overlay hidden" id="snakeLobbyOverlay">
           <div class="overlay-box lobby-box">
@@ -1469,6 +1623,9 @@
                   🔗 Копия ссылки
                 </button>
               </div>
+              <button class="btn btn-action" id="btnSnakeLobbyBackMenu" style="margin-top:2px;">
+                📋 В меню игры
+              </button>
             </div>
           </div>
         </div>
@@ -1479,7 +1636,10 @@
             <h2 class="overlay-title">Врезался! 💥</h2>
             <p class="overlay-desc">Твой счёт: <span id="snakeOverlayScore" style="color:#10b981; font-weight:900;">0</span></p>
             <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">Рекорд сохранён в твой <b>/профиль</b>!</p>
-            <button class="btn btn-action primary" id="btnSnakeOverlayRestart">ИГРАТЬ СНОВА</button>
+            <div style="display:flex; gap:10px;">
+              <button class="btn btn-action primary" id="btnSnakeOverlayRestart">ИГРАТЬ СНОВА</button>
+              <button class="btn btn-action" id="btnSnakeGameOverMenu">В МЕНЮ</button>
+            </div>
           </div>
         </div>
 
@@ -1522,6 +1682,7 @@
 
       <!-- Кнопки управления под полем Змейки -->
       <div class="controls-row">
+        <button class="btn btn-action" id="btnSnakeMenu">📋 МЕНЮ</button>
         <button class="btn btn-action" id="btnSnakeNewGame">🔄 ЗАНОВО</button>
         <button class="btn btn-action danger" id="btnSnakeStopGame">⏹️ СТОП</button>
       </div>

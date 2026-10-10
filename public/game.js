@@ -445,13 +445,17 @@ function switchActiveGame(gameName) {
         },
         openChannelSelect: (g) => openChannelSelect(g),
       });
-      snakeGame.startSoloGame();
+      snakeGame.showMenu();
     } else {
       if (currentScoreEl) currentScoreEl.textContent = snakeGame.score;
       if (bestScoreEl) bestScoreEl.textContent = snakeGame.bestScore;
       if (mainProfileRecord) mainProfileRecord.textContent = snakeGame.bestScore;
       snakeGame.setupCanvas();
-      snakeGame.render();
+      if (snakeGame.state === 'menu') {
+        snakeGame.showMenu();
+      } else {
+        snakeGame.render(0);
+      }
     }
   }
 }

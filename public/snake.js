@@ -1,7 +1,7 @@
 'use strict';
 
 /* ========================================================
-   SNAKE GAME ENGINE (ЗМЕЙКА · SOLO & DUEL ON ONE MAP)
+   SNAKE GAME ENGINE (ЗМЕЙКА · ПЛАВНЫЙ РЕЖИМ, МЕНЮ, СОЛО И ДУЭЛЬ)
 ======================================================== */
 
 const GRID_SIZE = 20;
@@ -17,13 +17,20 @@ export class SnakeGame {
     this.onScoreUpdate = options.onScoreUpdate || (() => {});
     this.openChannelSelect = options.openChannelSelect || (() => {});
 
-    // State
+    // State: 'menu' | 'playing' | 'gameover' | 'duel_lobby' | 'duel_playing' | 'duel_results'
+    this.state = 'menu';
     this.mode = 'solo'; // 'solo' | 'duel'
     this.duelState = 'lobby'; // 'lobby' | 'playing' | 'finished'
     this.isBotActive = false;
     this.lastOpponent = null;
     this.duelPollTimer = null;
-    this.gameLoopTimer = null;
+
+    // Timing & Smooth Animation
+    this.speedMode = 'normal'; // 'normal' (120ms) | 'fast' (78ms)
+    this.stepInterval = 120;
+    this.lastStepTime = performance.now();
+    this.isRunning = false;
+    this.rafId = null;
 
     this.score = 0;
     this.bestScore = 0;
@@ -33,23 +40,29 @@ export class SnakeGame {
     // Snake 1 (Player)
     this.snake1 = {
       body: [{ x: 5, y: 10 }, { x: 4, y: 10 }, { x: 3, y: 10 }],
+      prevBody: [{ x: 5, y: 10 }, { x: 4, y: 10 }, { x: 3, y: 10 }],
       dir: { x: 1, y: 0 },
       nextDir: { x: 1, y: 0 },
+      inputQueue: [],
       isAlive: true,
       color: '#10b981',
       headColor: '#059669',
       score: 0,
+      ateApple: false,
     };
 
     // Snake 2 (Opponent / Bot Vasya in Duel)
     this.snake2 = {
       body: [{ x: 15, y: 10 }, { x: 16, y: 10 }, { x: 17, y: 10 }],
+      prevBody: [{ x: 15, y: 10 }, { x: 16, y: 10 }, { x: 17, y: 10 }],
       dir: { x: -1, y: 0 },
       nextDir: { x: -1, y: 0 },
+      inputQueue: [],
       isAlive: true,
       color: '#f59e0b',
       headColor: '#d97706',
       score: 0,
+      ateApple: false,
     };
 
     // Food
@@ -67,6 +80,17 @@ export class SnakeGame {
     this.btnModeSolo = document.getElementById('btnSnakeModeSolo');
     this.btnModeDuel = document.getElementById('btnSnakeModeDuel');
     this.duelSection = document.getElementById('snakeDuelSection');
+
+    // Menu Overlay Elements
+    this.menuOverlay = document.getElementById('snakeMenuOverlay');
+    this.menuRecordVal = document.getElementById('snakeMenuRecordVal');
+    this.btnStartGame = document.getElementById('btnSnakeStartGame');
+    this.btnMenuDuel = document.getElementById('btnSnakeMenuDuel');
+    this.btnSpeedNormal = document.getElementById('btnSpeedNormal');
+    this.btnSpeedFast = document.getElementById('btnSpeedFast');
+    this.btnSnakeMenu = document.getElementById('btnSnakeMenu');
+    this.btnGameOverMenu = document.getElementById('btnSnakeGameOverMenu');
+    this.btnLobbyBackMenu = document.getElementById('btnSnakeLobbyBackMenu');
 
     // Duel HUD
     this.myAvatarEl = document.getElementById('snakeMyAvatar');
@@ -118,7 +142,6 @@ export class SnakeGame {
     // Controls
     this.btnNewGame = document.getElementById('btnSnakeNewGame');
     this.btnStopGame = document.getElementById('btnSnakeStopGame');
-    this.btnSpeed = document.getElementById('btnSnakeSpeed');
   }
 
   setupCanvas() {
@@ -141,7 +164,7 @@ export class SnakeGame {
   initEvents() {
     window.addEventListener('resize', () => {
       this.setupCanvas();
-      this.render();
+      this.render(1);
     });
 
     // Keyboard Controls
@@ -230,6 +253,21 @@ export class SnakeGame {
     bindDpad('snakeBtnL', -1, 0);
     bindDpad('snakeBtnR', 1, 0);
 
+    // Menu Buttons
+    if (this.btnStartGame) this.btnStartGame.onclick = () => this.startSoloGame();
+    if (this.btnMenuDuel) this.btnMenuDuel.onclick = () => this.switchMode('duel');
+
+    if (this.btnSpeedNormal) {
+      this.btnSpeedNormal.onclick = () => this.setSpeed('normal');
+    }
+    if (this.btnSpeedFast) {
+      this.btnSpeedFast.onclick = () => this.setSpeed('fast');
+    }
+
+    if (this.btnSnakeMenu) this.btnSnakeMenu.onclick = () => this.showMenu();
+    if (this.btnGameOverMenu) this.btnGameOverMenu.onclick = () => this.showMenu();
+    if (this.btnLobbyBackMenu) this.btnLobbyBackMenu.onclick = () => this.showMenu();
+
     // Mode Buttons
     if (this.btnModeSolo) {
       this.btnModeSolo.onclick = () => this.switchMode('solo');
@@ -244,25 +282,14 @@ export class SnakeGame {
 
     if (this.btnStopGame) {
       this.btnStopGame.onclick = () => {
-        if (this.isGameOver) return;
+        if (this.isGameOver || this.state === 'menu') return;
         this.stopGame(true);
       };
     }
 
-    // Lobby Buttons
-    if (this.btnStartDuel) {
-      this.btnStartDuel.onclick = () => {
-        if (this.lastOpponent) {
-          this.startDuelMatch(false);
-        } else {
-          this.startDuelMatch(true);
-        }
-      };
-    }
-
-    if (this.btnBotChoice) {
-      this.btnBotChoice.onclick = () => this.startDuelMatch(true);
-    }
+    // Duel Actions
+    if (this.btnStartDuel) this.btnStartDuel.onclick = () => this.startDuelMatch(false);
+    if (this.btnBotChoice) this.btnBotChoice.onclick = () => this.startDuelMatch(true);
 
     if (this.btnInviteChat) {
       this.btnInviteChat.onclick = () => {
@@ -272,40 +299,101 @@ export class SnakeGame {
 
     if (this.btnCopyInvite) {
       this.btnCopyInvite.onclick = async () => {
-        const urlToCopy = window.location.href;
+        const url = window.location.href;
         try {
-          if (navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(urlToCopy);
-            this.showToast('🔗 Ссылка на Змейку скопирована в буфер!');
-            return;
-          }
-        } catch {}
-        this.showToast(`Ссылка: ${urlToCopy}`);
+          await navigator.clipboard.writeText(url);
+          this.showToast('📋 Ссылка на дуэль скопирована!');
+        } catch {
+          this.showToast('Ссылка: ' + url);
+        }
       };
     }
 
     if (this.btnDuelRematch) {
       this.btnDuelRematch.onclick = () => {
-        if (this.duelResultOverlay) this.duelResultOverlay.classList.add('hidden');
         this.startDuelMatch(this.isBotActive);
       };
     }
 
     if (this.btnBackToLobby) {
       this.btnBackToLobby.onclick = () => {
-        if (this.duelResultOverlay) this.duelResultOverlay.classList.add('hidden');
         this.openLobby();
       };
     }
   }
 
+  setSpeed(mode) {
+    this.speedMode = mode;
+    this.stepInterval = mode === 'fast' ? 78 : 120;
+    if (this.btnSpeedNormal) {
+      this.btnSpeedNormal.classList.toggle('active', mode === 'normal');
+    }
+    if (this.btnSpeedFast) {
+      this.btnSpeedFast.classList.toggle('active', mode === 'fast');
+    }
+  }
+
+  showMenu() {
+    this.state = 'menu';
+    this.stopLoop();
+    this.isGameOver = false;
+
+    if (this.btnModeSolo) this.btnModeSolo.classList.add('active');
+    if (this.btnModeDuel) this.btnModeDuel.classList.remove('active');
+    if (this.duelSection) this.duelSection.classList.add('hidden');
+    if (this.lobbyOverlay) this.lobbyOverlay.classList.add('hidden');
+    if (this.gameOverOverlay) this.gameOverOverlay.classList.add('hidden');
+    if (this.duelResultOverlay) this.duelResultOverlay.classList.add('hidden');
+    if (this.menuOverlay) this.menuOverlay.classList.remove('hidden');
+
+    if (this.menuRecordVal) this.menuRecordVal.textContent = this.bestScore || 0;
+
+    // Peaceful preview state on canvas
+    this.snake1 = {
+      body: [
+        { x: 9, y: 10 },
+        { x: 8, y: 10 },
+        { x: 7, y: 10 },
+        { x: 6, y: 10 },
+        { x: 5, y: 10 },
+      ],
+      prevBody: [
+        { x: 9, y: 10 },
+        { x: 8, y: 10 },
+        { x: 7, y: 10 },
+        { x: 6, y: 10 },
+        { x: 5, y: 10 },
+      ],
+      dir: { x: 1, y: 0 },
+      nextDir: { x: 1, y: 0 },
+      inputQueue: [],
+      isAlive: true,
+      color: '#10b981',
+      headColor: '#059669',
+      score: 0,
+      ateApple: false,
+    };
+    this.apples = [{ x: 14, y: 10 }];
+    this.goldenApple = null;
+
+    this.startPreviewLoop();
+  }
+
   changeDirection(dx, dy) {
-    if (this.isGameOver) return;
-    const current = this.snake1.dir;
+    if (this.isGameOver || this.state === 'menu') return;
+    const queue = this.snake1.inputQueue;
+    const lastDir = queue.length > 0 ? queue[queue.length - 1] : this.snake1.dir;
+
     // Запрет разворота на 180 градусов
-    if (current.x === -dx && current.x !== 0) return;
-    if (current.y === -dy && current.y !== 0) return;
-    this.snake1.nextDir = { x: dx, y: dy };
+    if (lastDir.x === -dx && lastDir.x !== 0) return;
+    if (lastDir.y === -dy && lastDir.y !== 0) return;
+
+    // Игнорируем нажатие той же кнопки
+    if (lastDir.x === dx && lastDir.y === dy) return;
+
+    if (queue.length < 2) {
+      queue.push({ x: dx, y: dy });
+    }
   }
 
   switchMode(newMode) {
@@ -316,10 +404,11 @@ export class SnakeGame {
       if (this.duelSection) this.duelSection.classList.add('hidden');
       if (this.lobbyOverlay) this.lobbyOverlay.classList.add('hidden');
       this.stopDuelPolling();
-      this.startSoloGame();
+      this.showMenu();
     } else {
       if (this.btnModeDuel) this.btnModeDuel.classList.add('active');
       if (this.btnModeSolo) this.btnModeSolo.classList.remove('active');
+      if (this.menuOverlay) this.menuOverlay.classList.add('hidden');
       this.openLobby();
       this.startDuelPolling();
     }
@@ -327,8 +416,10 @@ export class SnakeGame {
 
   openLobby() {
     this.duelState = 'lobby';
+    this.state = 'duel_lobby';
     this.stopLoop();
     this.isBotActive = false;
+    if (this.menuOverlay) this.menuOverlay.classList.add('hidden');
     if (this.duelSection) this.duelSection.classList.add('hidden');
     if (this.duelResultOverlay) this.duelResultOverlay.classList.add('hidden');
     if (this.gameOverOverlay) this.gameOverOverlay.classList.add('hidden');
@@ -337,14 +428,45 @@ export class SnakeGame {
     const user = this.getCurrentUser();
     if (this.lobbyMyName) this.lobbyMyName.textContent = user.username;
     if (this.lobbyMyAvatar && user.avatar) this.lobbyMyAvatar.src = user.avatar;
+
+    // Peaceful preview for duel lobby
+    this.snake1 = {
+      body: [{ x: 4, y: 4 }, { x: 3, y: 4 }, { x: 2, y: 4 }],
+      prevBody: [{ x: 4, y: 4 }, { x: 3, y: 4 }, { x: 2, y: 4 }],
+      dir: { x: 1, y: 0 },
+      nextDir: { x: 1, y: 0 },
+      inputQueue: [],
+      isAlive: true,
+      color: '#10b981',
+      headColor: '#059669',
+      score: 0,
+      ateApple: false,
+    };
+    this.snake2 = {
+      body: [{ x: 15, y: 15 }, { x: 16, y: 15 }, { x: 17, y: 15 }],
+      prevBody: [{ x: 15, y: 15 }, { x: 16, y: 15 }, { x: 17, y: 15 }],
+      dir: { x: -1, y: 0 },
+      nextDir: { x: -1, y: 0 },
+      inputQueue: [],
+      isAlive: true,
+      color: '#f59e0b',
+      headColor: '#d97706',
+      score: 0,
+      ateApple: false,
+    };
+    this.apples = [{ x: 10, y: 10 }];
+    this.goldenApple = null;
+    this.render(1);
   }
 
   startSoloGame() {
     this.mode = 'solo';
+    this.state = 'playing';
     this.isGameOver = false;
     this.score = 0;
     this.onScoreUpdate(0, this.bestScore);
 
+    if (this.menuOverlay) this.menuOverlay.classList.add('hidden');
     if (this.gameOverOverlay) this.gameOverOverlay.classList.add('hidden');
     if (this.duelResultOverlay) this.duelResultOverlay.classList.add('hidden');
     if (this.lobbyOverlay) this.lobbyOverlay.classList.add('hidden');
@@ -352,27 +474,32 @@ export class SnakeGame {
 
     this.snake1 = {
       body: [{ x: 5, y: 10 }, { x: 4, y: 10 }, { x: 3, y: 10 }],
+      prevBody: [{ x: 5, y: 10 }, { x: 4, y: 10 }, { x: 3, y: 10 }],
       dir: { x: 1, y: 0 },
       nextDir: { x: 1, y: 0 },
+      inputQueue: [],
       isAlive: true,
       color: '#10b981',
       headColor: '#059669',
       score: 0,
+      ateApple: false,
     };
 
     this.apples = [this.getRandomEmptyCell([this.snake1.body])];
     this.goldenApple = null;
 
-    this.startLoop(110);
-    this.render();
+    this.startLoop();
+    this.render(0);
   }
 
   startDuelMatch(withBot = false) {
     this.mode = 'duel';
     this.duelState = 'playing';
+    this.state = 'duel_playing';
     this.isGameOver = false;
     this.isBotActive = withBot;
 
+    if (this.menuOverlay) this.menuOverlay.classList.add('hidden');
     if (this.lobbyOverlay) this.lobbyOverlay.classList.add('hidden');
     if (this.duelResultOverlay) this.duelResultOverlay.classList.add('hidden');
     if (this.duelSection) this.duelSection.classList.remove('hidden');
@@ -393,28 +520,32 @@ export class SnakeGame {
       this.showToast('⚔️ Дуэль игроков на одной карте началась!');
     }
 
-    // Спавн игроков на противоположных сторонах одной карты
     this.snake1 = {
       body: [{ x: 4, y: 4 }, { x: 3, y: 4 }, { x: 2, y: 4 }],
+      prevBody: [{ x: 4, y: 4 }, { x: 3, y: 4 }, { x: 2, y: 4 }],
       dir: { x: 1, y: 0 },
       nextDir: { x: 1, y: 0 },
+      inputQueue: [],
       isAlive: true,
       color: '#10b981',
       headColor: '#059669',
       score: 0,
+      ateApple: false,
     };
 
     this.snake2 = {
       body: [{ x: 15, y: 15 }, { x: 16, y: 15 }, { x: 17, y: 15 }],
+      prevBody: [{ x: 15, y: 15 }, { x: 16, y: 15 }, { x: 17, y: 15 }],
       dir: { x: -1, y: 0 },
       nextDir: { x: -1, y: 0 },
+      inputQueue: [],
       isAlive: true,
       color: '#f59e0b',
       headColor: '#d97706',
       score: 0,
+      ateApple: false,
     };
 
-    // На общей карте спавним 3 яблока
     this.apples = [
       { x: 10, y: 10 },
       { x: 5, y: 15 },
@@ -422,27 +553,63 @@ export class SnakeGame {
     ];
 
     this.updateDuelHUD();
-    this.startLoop(115);
-    this.render();
+    this.startLoop();
+    this.render(0);
   }
 
-  startLoop(intervalMs = 110) {
+  startLoop() {
     this.stopLoop();
-    this.gameLoopTimer = setInterval(() => {
-      this.step();
-      this.render();
-    }, intervalMs);
+    this.isRunning = true;
+    this.lastStepTime = performance.now();
+
+    const loop = (timestamp) => {
+      if (!this.isRunning) return;
+
+      const now = performance.now();
+      const delta = now - this.lastStepTime;
+
+      if (delta >= this.stepInterval) {
+        this.step();
+        this.lastStepTime = now;
+      }
+
+      if (this.isGameOver) return;
+
+      const t = Math.min(1, Math.max(0, (now - this.lastStepTime) / this.stepInterval));
+      this.render(t);
+
+      this.rafId = requestAnimationFrame(loop);
+    };
+
+    this.rafId = requestAnimationFrame(loop);
   }
 
   stopLoop() {
-    if (this.gameLoopTimer) clearInterval(this.gameLoopTimer);
-    this.gameLoopTimer = null;
+    this.isRunning = false;
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+  }
+
+  startPreviewLoop() {
+    this.stopLoop();
+    this.isRunning = true;
+    const loop = () => {
+      if (!this.isRunning || this.state !== 'menu') return;
+      this.render(1);
+      this.rafId = requestAnimationFrame(loop);
+    };
+    this.rafId = requestAnimationFrame(loop);
   }
 
   step() {
     if (this.isGameOver) return;
 
-    // 1. Обновляем направления
+    // 1. Потребляем очередь направления Змейки 1
+    if (this.snake1.inputQueue.length > 0) {
+      this.snake1.nextDir = this.snake1.inputQueue.shift();
+    }
     this.snake1.dir = { ...this.snake1.nextDir };
 
     if (this.mode === 'duel') {
@@ -450,6 +617,12 @@ export class SnakeGame {
         this.stepBotVasyaAI();
       }
       this.snake2.dir = { ...this.snake2.nextDir };
+    }
+
+    // Сохраняем предыдущие координаты для плавной интерполяции
+    this.snake1.prevBody = this.snake1.body.map((p) => ({ x: p.x, y: p.y }));
+    if (this.mode === 'duel') {
+      this.snake2.prevBody = this.snake2.body.map((p) => ({ x: p.x, y: p.y }));
     }
 
     // 2. Двигаем Змейку 1
@@ -484,8 +657,7 @@ export class SnakeGame {
         this.snake2.isAlive = false;
       }
 
-      // ПЕРЕКРЁСТНЫЕ СТОЛКНОВЕНИЯ НА ОДНОЙ КАРТЕ!
-      // Лоб в лоб:
+      // Перекрёстные столкновения
       if (head1.x === head2.x && head1.y === head2.y) {
         if (this.snake1.body.length > this.snake2.body.length) {
           this.snake2.isAlive = false;
@@ -497,20 +669,18 @@ export class SnakeGame {
         }
       }
 
-      // Змейка 1 врезалась в тело Змейки 2:
       if (this.snake2.body.some((seg) => seg.x === head1.x && seg.y === head1.y)) {
         this.snake1.isAlive = false;
-        this.snake2.score += 100; // Бонус за уничтожение соперника
+        this.snake2.score += 100;
       }
 
-      // Змейка 2 врезалась в тело Змейки 1:
       if (this.snake1.body.some((seg) => seg.x === head2.x && seg.y === head2.y)) {
         this.snake2.isAlive = false;
-        this.snake1.score += 100; // Бонус за уничтожение соперника
+        this.snake1.score += 100;
       }
     }
 
-    // Если кто-то погиб — завершаем
+    // Если кто-то погиб
     if (!this.snake1.isAlive || (this.mode === 'duel' && !this.snake2.isAlive)) {
       this.handleGameOver();
       return;
@@ -526,8 +696,12 @@ export class SnakeGame {
     const apple1Idx = this.apples.findIndex((a) => a.x === head1.x && a.y === head1.y);
     if (apple1Idx !== -1) {
       this.snake1.score += 10;
+      this.snake1.ateApple = true;
       this.score = this.snake1.score;
-      if (this.score > this.bestScore) this.bestScore = this.score;
+      if (this.score > this.bestScore) {
+        this.bestScore = this.score;
+        if (this.menuRecordVal) this.menuRecordVal.textContent = this.bestScore;
+      }
       this.onScoreUpdate(this.score, this.bestScore);
       this.apples[apple1Idx] = this.getRandomEmptyCell([this.snake1.body, this.snake2.body]);
       if (this.mode === 'solo' && Math.random() < 0.25 && !this.goldenApple) {
@@ -535,12 +709,17 @@ export class SnakeGame {
       }
     } else if (this.goldenApple && head1.x === this.goldenApple.x && head1.y === this.goldenApple.y) {
       this.snake1.score += 30;
+      this.snake1.ateApple = true;
       this.score = this.snake1.score;
-      if (this.score > this.bestScore) this.bestScore = this.score;
+      if (this.score > this.bestScore) {
+        this.bestScore = this.score;
+        if (this.menuRecordVal) this.menuRecordVal.textContent = this.bestScore;
+      }
       this.onScoreUpdate(this.score, this.bestScore);
       this.goldenApple = null;
     } else {
-      this.snake1.body.pop(); // Обычное движение без роста
+      this.snake1.ateApple = false;
+      this.snake1.body.pop();
     }
 
     // 7. Поедание яблок Змейкой 2 (в дуэли)
@@ -548,15 +727,16 @@ export class SnakeGame {
       const apple2Idx = this.apples.findIndex((a) => a.x === head2.x && a.y === head2.y);
       if (apple2Idx !== -1) {
         this.snake2.score += 10;
+        this.snake2.ateApple = true;
         this.apples[apple2Idx] = this.getRandomEmptyCell([this.snake1.body, this.snake2.body]);
       } else {
+        this.snake2.ateApple = false;
         this.snake2.body.pop();
       }
       this.updateDuelHUD();
     }
   }
 
-  // Умный ИИ Бота Васи: поиск пути к ближайшему яблоку и обход препятствий
   stepBotVasyaAI() {
     const head = this.snake2.body[0];
     const target = this.apples[0] || { x: 10, y: 10 };
@@ -570,27 +750,20 @@ export class SnakeGame {
 
     const currentDir = this.snake2.dir;
 
-    // Фильтруем запреты разворота и безопасные клетки
     const safeMoves = candidates.filter((c) => {
-      // Нельзя назад
       if (c.dir.x === -currentDir.x && currentDir.x !== 0) return false;
       if (c.dir.y === -currentDir.y && currentDir.y !== 0) return false;
 
-      // Стены
       if (c.next.x < 0 || c.next.x >= GRID_SIZE || c.next.y < 0 || c.next.y >= GRID_SIZE) return false;
 
-      // Свой хвост
       if (this.snake2.body.some((seg) => seg.x === c.next.x && seg.y === c.next.y)) return false;
-
-      // Хвост Змейки 1
       if (this.snake1.body.some((seg) => seg.x === c.next.x && seg.y === c.next.y)) return false;
 
       return true;
     });
 
-    if (safeMoves.length === 0) return; // Некуда идти
+    if (safeMoves.length === 0) return;
 
-    // Выбираем ход с минимальным расстоянием до яблока (Манхэттен)
     safeMoves.sort((a, b) => {
       const distA = Math.abs(a.next.x - target.x) + Math.abs(a.next.y - target.y);
       const distB = Math.abs(b.next.x - target.x) + Math.abs(b.next.y - target.y);
@@ -623,6 +796,7 @@ export class SnakeGame {
 
   handleGameOver(isManual = false) {
     this.isGameOver = true;
+    this.state = 'gameover';
     this.stopLoop();
 
     const finalScore = this.snake1.score;
@@ -649,6 +823,7 @@ export class SnakeGame {
     if (this.overlayScoreEl) this.overlayScoreEl.textContent = finalScore;
     if (this.gameOverOverlay) this.gameOverOverlay.classList.remove('hidden');
     if (isManual) this.showToast('⏹️ Игра завершена, счёт зафиксирован в профиль!');
+    this.render(1);
   }
 
   updateDuelHUD() {
@@ -694,10 +869,33 @@ export class SnakeGame {
     if (this.summaryOppLength) this.summaryOppLength.textContent = `📏 ${oppLength}`;
 
     if (this.duelResultOverlay) this.duelResultOverlay.classList.remove('hidden');
+    this.render(1);
   }
 
-  // Рендеринг холста
-  render() {
+  // Расчёт плавных интерполированных координат сегментов
+  getInterpolatedPoints(snakeObj, t, cellSize) {
+    const body = snakeObj.body;
+    const prev = snakeObj.prevBody || body;
+    const pts = [];
+
+    for (let i = 0; i < body.length; i++) {
+      const p = prev[i] || body[i];
+      const c = body[i];
+      const ix = p.x + (c.x - p.x) * t;
+      const iy = p.y + (c.y - p.y) * t;
+      pts.push({
+        x: ix,
+        y: iy,
+        cx: (ix + 0.5) * cellSize,
+        cy: (iy + 0.5) * cellSize,
+      });
+    }
+
+    return pts;
+  }
+
+  // Рендеринг холста с плавной интерполяцией
+  render(t = 1) {
     if (!this.ctx || !this.canvas) return;
     const ctx = this.ctx;
     const size = this.canvasSize || 380;
@@ -718,11 +916,11 @@ export class SnakeGame {
     }
 
     // Отрисовка Змейки 1 (Зелёная)
-    this.renderSnake(this.snake1, cellSize, '#10b981', '#059669');
+    this.renderSnake(this.snake1, cellSize, '#10b981', '#059669', t);
 
     // Отрисовка Змейки 2 (Оранжевая в Дуэли)
     if (this.mode === 'duel') {
-      this.renderSnake(this.snake2, cellSize, '#f59e0b', '#d97706');
+      this.renderSnake(this.snake2, cellSize, '#f59e0b', '#d97706', t);
     }
 
     // Отрисовка Яблок (🍎)
@@ -736,94 +934,163 @@ export class SnakeGame {
     }
   }
 
-  renderSnake(snakeObj, cellSize, bodyColor, headColor) {
+  renderSnake(snakeObj, cellSize, bodyColor, headColor, t = 1) {
     const ctx = this.ctx;
     const body = snakeObj.body;
     if (!body || body.length === 0) return;
 
-    // Тело
-    for (let i = body.length - 1; i >= 1; i--) {
-      const seg = body[i];
-      const px = seg.x * cellSize;
-      const py = seg.y * cellSize;
-      const pad = 1.5;
+    const pts = this.getInterpolatedPoints(snakeObj, t, cellSize);
+    const radius = cellSize * 0.42;
 
-      ctx.fillStyle = bodyColor;
-      ctx.beginPath();
-      ctx.roundRect(px + pad, py + pad, cellSize - pad * 2, cellSize - pad * 2, 4);
-      ctx.fill();
+    ctx.save();
+
+    // 1. Непрерывное плавное туловище змейки
+    ctx.strokeStyle = bodyColor;
+    ctx.lineWidth = radius * 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.beginPath();
+    ctx.moveTo(pts[0].cx, pts[0].cy);
+    for (let i = 1; i < pts.length; i++) {
+      ctx.lineTo(pts[i].cx, pts[i].cy);
     }
+    ctx.stroke();
 
-    // Голова
-    const head = body[0];
-    const hx = head.x * cellSize;
-    const hy = head.y * cellSize;
+    // 2. Блик по хребту змейки (объём)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.lineWidth = radius * 0.75;
+    ctx.stroke();
 
+    // 3. Голова змейки
     ctx.fillStyle = headColor;
     ctx.beginPath();
-    ctx.roundRect(hx + 1, hy + 1, cellSize - 2, cellSize - 2, 6);
+    ctx.arc(pts[0].cx, pts[0].cy, radius * 1.05, 0, Math.PI * 2);
     ctx.fill();
 
-    // Глазки
-    ctx.fillStyle = '#ffffff';
-    const eyeSize = Math.max(2.5, cellSize * 0.18);
-    const eyeOffset = cellSize * 0.28;
+    // 4. Направление головы для глазок и языка
+    const forwardX = snakeObj.dir.x;
+    const forwardY = snakeObj.dir.y;
+    const rightX = -forwardY;
+    const rightY = forwardX;
 
-    let e1 = { x: hx + eyeOffset, y: hy + eyeOffset };
-    let e2 = { x: hx + cellSize - eyeOffset, y: hy + eyeOffset };
+    // Высовывающийся раздвоенный язычок
+    const now = performance.now();
+    const tongueCycle = (now % 1800) / 1800;
+    if (tongueCycle < 0.28 && !this.isGameOver) {
+      const tongueProgress = Math.sin((tongueCycle / 0.28) * Math.PI);
+      const tongueLen = radius * 0.85 * tongueProgress;
+      const tx = pts[0].cx + forwardX * (radius * 1.05 + tongueLen);
+      const ty = pts[0].cy + forwardY * (radius * 1.05 + tongueLen);
 
-    if (snakeObj.dir.x === 1) {
-      e1 = { x: hx + cellSize - eyeOffset, y: hy + eyeOffset };
-      e2 = { x: hx + cellSize - eyeOffset, y: hy + cellSize - eyeOffset };
-    } else if (snakeObj.dir.x === -1) {
-      e1 = { x: hx + eyeOffset, y: hy + eyeOffset };
-      e2 = { x: hx + eyeOffset, y: hy + cellSize - eyeOffset };
-    } else if (snakeObj.dir.y === 1) {
-      e1 = { x: hx + eyeOffset, y: hy + cellSize - eyeOffset };
-      e2 = { x: hx + cellSize - eyeOffset, y: hy + cellSize - eyeOffset };
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = Math.max(1.5, cellSize * 0.09);
+      ctx.beginPath();
+      ctx.moveTo(pts[0].cx + forwardX * radius * 0.9, pts[0].cy + forwardY * radius * 0.9);
+      ctx.lineTo(tx, ty);
+      ctx.lineTo(tx + (forwardX + rightX * 0.6) * 3, ty + (forwardY + rightY * 0.6) * 3);
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx + (forwardX - rightX * 0.6) * 3, ty + (forwardY - rightY * 0.6) * 3);
+      ctx.stroke();
     }
 
+    // 5. Глазки
+    const eyeForwardOffset = radius * 0.32;
+    const eyeSideOffset = radius * 0.54;
+    const eyeR = Math.max(2.5, radius * 0.38);
+    const pupilR = Math.max(1.4, eyeR * 0.55);
+
+    const eye1 = {
+      x: pts[0].cx + forwardX * eyeForwardOffset + rightX * eyeSideOffset,
+      y: pts[0].cy + forwardY * eyeForwardOffset + rightY * eyeSideOffset,
+    };
+    const eye2 = {
+      x: pts[0].cx + forwardX * eyeForwardOffset - rightX * eyeSideOffset,
+      y: pts[0].cy + forwardY * eyeForwardOffset - rightY * eyeSideOffset,
+    };
+
+    // Белки
+    ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(e1.x, e1.y, eyeSize, 0, Math.PI * 2);
-    ctx.arc(e2.x, e2.y, eyeSize, 0, Math.PI * 2);
+    ctx.arc(eye1.x, eye1.y, eyeR, 0, Math.PI * 2);
+    ctx.arc(eye2.x, eye2.y, eyeR, 0, Math.PI * 2);
     ctx.fill();
 
-    // Зрачки
+    // Зрачки со взглядом вперёд
+    const pupilOffset = eyeR * 0.28;
+    const p1 = { x: eye1.x + forwardX * pupilOffset, y: eye1.y + forwardY * pupilOffset };
+    const p2 = { x: eye2.x + forwardX * pupilOffset, y: eye2.y + forwardY * pupilOffset };
+
     ctx.fillStyle = '#111827';
     ctx.beginPath();
-    ctx.arc(e1.x, e1.y, eyeSize * 0.5, 0, Math.PI * 2);
-    ctx.arc(e2.x, e2.y, eyeSize * 0.5, 0, Math.PI * 2);
+    ctx.arc(p1.x, p1.y, pupilR, 0, Math.PI * 2);
+    ctx.arc(p2.x, p2.y, pupilR, 0, Math.PI * 2);
     ctx.fill();
+
+    // Блики в зрачках
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(p1.x - 0.7, p1.y - 0.7, pupilR * 0.4, 0, Math.PI * 2);
+    ctx.arc(p2.x - 0.7, p2.y - 0.7, pupilR * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
   }
 
   renderApple(ax, ay, cellSize, isGolden = false) {
     const ctx = this.ctx;
     const cx = ax * cellSize + cellSize / 2;
     const cy = ay * cellSize + cellSize / 2;
-    const radius = cellSize * 0.38;
 
-    // Яблоко
-    ctx.fillStyle = isGolden ? '#eab308' : '#ef4444';
+    // Плавная анимация дыхания / пульсации яблока
+    const now = performance.now();
+    const bounce = Math.sin(now * 0.005 + ax + ay) * 0.05;
+    const radius = cellSize * (0.38 + bounce);
+
+    ctx.save();
+
+    // Сияние вокруг золотого яблока
+    if (isGolden) {
+      const glowR = radius * (1.3 + Math.sin(now * 0.008) * 0.15);
+      const grad = ctx.createRadialGradient(cx, cy, radius * 0.5, cx, cy, glowR);
+      grad.addColorStop(0, 'rgba(234, 179, 8, 0.45)');
+      grad.addColorStop(1, 'rgba(234, 179, 8, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Тело яблока
+    ctx.fillStyle = isGolden ? '#facc15' : '#ef4444';
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Блик на яблоке
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.beginPath();
+    ctx.arc(cx - radius * 0.3, cy - radius * 0.3, radius * 0.35, 0, Math.PI * 2);
     ctx.fill();
 
     // Листик
     ctx.fillStyle = '#22c55e';
     ctx.beginPath();
-    ctx.ellipse(cx + radius * 0.4, cy - radius * 0.7, radius * 0.4, radius * 0.2, Math.PI / 4, 0, Math.PI * 2);
+    ctx.ellipse(cx + radius * 0.35, cy - radius * 0.65, radius * 0.38, radius * 0.2, Math.PI / 4, 0, Math.PI * 2);
     ctx.fill();
+
+    ctx.restore();
   }
 
   // Сеть & рекорды
   async fetchBestScore() {
     try {
-      const user = this.getCurrentUser();
-      const res = await fetch(`/api/score?userId=${user.id}&game=snake`);
+      const res = await fetch('/api/identify');
       if (res.ok) {
         const data = await res.json();
-        if (data.best) {
-          this.bestScore = data.best;
+        if (typeof data.bestSnake === 'number') {
+          this.bestScore = data.bestSnake;
+          if (this.menuRecordVal) this.menuRecordVal.textContent = this.bestScore;
           this.onScoreUpdate(this.score, this.bestScore);
         }
       }
@@ -831,7 +1098,7 @@ export class SnakeGame {
   }
 
   async saveScoreToBot(finalScore) {
-    if (finalScore <= 0) return;
+    if (!finalScore || finalScore <= 0) return;
     const user = this.getCurrentUser();
     try {
       const res = await fetch('/api/score', {
@@ -849,6 +1116,7 @@ export class SnakeGame {
         const data = await res.json();
         if (data.best) {
           this.bestScore = data.best;
+          if (this.menuRecordVal) this.menuRecordVal.textContent = this.bestScore;
           this.onScoreUpdate(this.score, this.bestScore);
         }
         this.showToast(`🐍 Рекорд в Змейке (${finalScore}) сохранён в /профиль!`);
