@@ -44,7 +44,7 @@ function createServer(storage, client) {
       return;
     }
 
-    // 1.5 API: Identify user from recent command launch or channel
+    // 1.5 API: Identify user from recent command launch, active voice, or fallback
     if (pathname === '/api/identify' && req.method === 'GET') {
       const channelId = url.searchParams.get('channelId');
       const meta = storage?.data?.meta;
@@ -57,19 +57,43 @@ function createServer(storage, client) {
       }
 
       let channelMembers = [];
-      if (channelId && client?.channels?.cache) {
-        const channel = client.channels.cache.get(channelId);
+      if (client?.channels?.cache) {
+        let channel = channelId ? client.channels.cache.get(channelId) : null;
+        if (!channel) {
+          channel = client.channels.cache.find((c) => c.isVoiceBased() && c.members && c.members.size > 0);
+        }
         if (channel?.members) {
           channelMembers = Array.from(channel.members.values())
             .filter((m) => !m.user?.bot)
             .map((m) => ({
               userId: m.user.id,
-              username: m.user.username,
-              displayName: m.displayName || m.user.username,
+              username: m.displayName || m.user.globalName || m.user.username,
               avatar: typeof m.user.displayAvatarURL === 'function'
                 ? m.user.displayAvatarURL({ extension: 'png', size: 128 })
                 : null,
             }));
+        }
+      }
+
+      // Если лаунчер не зафиксирован — берём первого участника войса или создателя бота
+      if (!user) {
+        if (channelMembers.length > 0) {
+          user = channelMembers[0];
+        } else {
+          const creatorId = '566547457568276494';
+          let discordUser = client?.users?.cache?.get(creatorId);
+          if (!discordUser && client?.users) {
+            try {
+              discordUser = await client.users.fetch(creatorId);
+            } catch {}
+          }
+          user = {
+            userId: creatorId,
+            username: discordUser?.globalName || discordUser?.username || 'baal worship',
+            avatar: discordUser && typeof discordUser.displayAvatarURL === 'function'
+              ? discordUser.displayAvatarURL({ extension: 'png', size: 256 })
+              : 'https://cdn.discordapp.com/avatars/566547457568276494/1506363121c6ce8e148c9ccd26cb9639.png?size=256',
+          };
         }
       }
 
@@ -80,8 +104,10 @@ function createServer(storage, client) {
         inviteUrl = meta.lastLaunch.inviteUrl;
       }
 
+      const userBestScore = user?.userId && storage ? storage.bestScore('2048', user.userId) : 0;
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, user, channelMembers, inviteUrl }));
+      res.end(JSON.stringify({ ok: true, user, bestScore: userBestScore, channelMembers, inviteUrl }));
       return;
     }
 
@@ -214,6 +240,9 @@ function createServer(storage, client) {
             } else if (meta?.lastLaunch && Date.now() - meta.lastLaunch.at < 2 * 60 * 60 * 1000) {
               userId = meta.lastLaunch.userId;
               username = meta.lastLaunch.username;
+            } else {
+              userId = '566547457568276494';
+              username = username || 'baal worship';
             }
           }
 

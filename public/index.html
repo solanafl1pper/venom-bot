@@ -202,6 +202,98 @@
     }
 
     /* ========================================================
+       User Profile Bar (Discord Profile)
+    ======================================================== */
+    .user-profile-bar {
+      width: 100%;
+      background: var(--duel-bg);
+      border: 2px solid var(--duel-border);
+      border-radius: 10px;
+      padding: 6px 12px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+      transition: all 0.2s ease;
+    }
+
+    .profile-avatar-wrap {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      position: relative;
+      flex-shrink: 0;
+      border: 2px solid #5865f2;
+      background: #2b2d31;
+    }
+
+    .profile-avatar-wrap img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      background: #10b981;
+      border: 2px solid var(--bg-color);
+      border-radius: 50%;
+      position: absolute;
+      bottom: -1px;
+      right: -1px;
+    }
+
+    .profile-info {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .profile-name-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .profile-name {
+      font-size: 13px;
+      font-weight: 900;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .profile-badge {
+      background: #5865f2;
+      color: #ffffff;
+      font-size: 8px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .profile-sub {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .profile-sub strong {
+      color: #10b981;
+      font-weight: 900;
+    }
+
+    /* ========================================================
        Duel Bar (во время матча)
     ======================================================== */
     .duel-section {
@@ -911,6 +1003,23 @@
       </div>
     </header>
 
+    <!-- Профиль Discord игрока (всегда виден) -->
+    <div class="user-profile-bar" id="userProfileBar">
+      <div class="profile-avatar-wrap">
+        <img id="mainProfileAvatar" src="https://cdn.discordapp.com/avatars/566547457568276494/1506363121c6ce8e148c9ccd26cb9639.png?size=256" alt="Discord Profile">
+        <span class="status-dot"></span>
+      </div>
+      <div class="profile-info">
+        <div class="profile-name-row">
+          <span class="profile-name" id="mainProfileName">baal worship</span>
+          <span class="profile-badge">DISCORD</span>
+        </div>
+        <div class="profile-sub">
+          <span>🏆 Рекорд в /профиль: <strong id="mainProfileRecord">0</strong></span>
+        </div>
+      </div>
+    </div>
+
     <!-- Переключатель режима: Соло / Дуэль -->
     <div class="mode-bar">
       <button class="mode-btn active" id="btnModeSolo">🕹️ Соло</button>
@@ -924,10 +1033,10 @@
           <!-- Ты -->
           <div class="duel-player me">
             <div class="duel-avatar-wrap">
-              <img id="myDuelAvatar" src="https://cdn.discordapp.com/embed/avatars/0.png" alt="me">
+              <img id="myDuelAvatar" src="https://cdn.discordapp.com/avatars/566547457568276494/1506363121c6ce8e148c9ccd26cb9639.png?size=256" alt="me">
             </div>
             <div class="duel-meta">
-              <span class="duel-name" id="myDuelName">Ты</span>
+              <span class="duel-name" id="myDuelName">baal worship</span>
               <div class="duel-score-row">
                 <span class="duel-score" id="myDuelScore">0</span>
                 <span class="badge-max-tile" id="myMaxTileBadge">🎯 2</span>
@@ -1001,9 +1110,9 @@
             <!-- Ты -->
             <div class="lobby-player">
               <div class="lobby-avatar">
-                <img id="lobbyMyAvatar" src="https://cdn.discordapp.com/embed/avatars/0.png" alt="me">
+                <img id="lobbyMyAvatar" src="https://cdn.discordapp.com/avatars/566547457568276494/1506363121c6ce8e148c9ccd26cb9639.png?size=256" alt="me">
               </div>
-              <span class="lobby-name" id="lobbyMyName">Ты</span>
+              <span class="lobby-name" id="lobbyMyName">baal worship</span>
               <span class="lobby-status-pill">ГОТОВ</span>
             </div>
 
@@ -1058,9 +1167,9 @@
           <div class="duel-summary-cards">
             <div class="summary-card">
               <div class="summary-avatar">
-                <img id="summaryMyAvatar" src="https://cdn.discordapp.com/embed/avatars/0.png" alt="me">
+                <img id="summaryMyAvatar" src="https://cdn.discordapp.com/avatars/566547457568276494/1506363121c6ce8e148c9ccd26cb9639.png?size=256" alt="me">
               </div>
-              <span class="summary-name" id="summaryMyName">Ты</span>
+              <span class="summary-name" id="summaryMyName">baal worship</span>
               <span class="summary-score" id="summaryMyScore">0</span>
               <span class="summary-max-tile" id="summaryMyMaxTile">🎯 2</span>
             </div>
@@ -1112,7 +1221,7 @@
   </div>
 
   <script type="module">
-    import './game.js?v=2048_fix_v6';
+    import './game.js?v=2048_profile_v7';
   </script>
 </body>
 </html>

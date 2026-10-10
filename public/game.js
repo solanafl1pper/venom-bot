@@ -45,9 +45,9 @@ let discordSdk = null;
 let cachedInviteUrl = null;
 
 let currentUser = {
-  id: 'guest_' + Math.floor(Math.random() * 10000),
-  username: 'Игрок',
-  avatar: 'https://cdn.discordapp.com/embed/avatars/0.png',
+  id: '566547457568276494',
+  username: 'baal worship',
+  avatar: 'https://cdn.discordapp.com/avatars/566547457568276494/1506363121c6ce8e148c9ccd26cb9639.png?size=256',
 };
 
 let roomId = 'default_room';
@@ -89,6 +89,12 @@ const btnOverlayRestart = document.getElementById('btnOverlayRestart');
 const btnCloseMenu = document.getElementById('btnCloseMenu');
 const btnThemeToggle = document.getElementById('btnThemeToggle');
 const themeIconEl = document.getElementById('themeIcon');
+
+// Главный профиль игрока (всегда виден)
+const mainProfileBar = document.getElementById('userProfileBar');
+const mainProfileAvatar = document.getElementById('mainProfileAvatar');
+const mainProfileName = document.getElementById('mainProfileName');
+const mainProfileRecord = document.getElementById('mainProfileRecord');
 
 const btnModeSolo = document.getElementById('btnModeSolo');
 const btnModeDuel = document.getElementById('btnModeDuel');
@@ -175,6 +181,10 @@ function applyTheme(theme) {
 ======================================================== */
 function updateProfileUI() {
   // Обновляем аватары и ники во всех блоках интерфейса
+  if (mainProfileName) mainProfileName.textContent = currentUser.username;
+  if (mainProfileAvatar && currentUser.avatar) mainProfileAvatar.src = currentUser.avatar;
+  if (mainProfileRecord) mainProfileRecord.textContent = bestScore;
+
   if (myDuelName) myDuelName.textContent = currentUser.username;
   if (myDuelAvatar && currentUser.avatar) myDuelAvatar.src = currentUser.avatar;
   if (lobbyMyName) lobbyMyName.textContent = currentUser.username;
@@ -579,7 +589,8 @@ function showDuelResults({ isPlayerWinner, myName, myScore, myMaxTile, oppName, 
       : `Соперник набрал на ${diff} очков больше. Потребуй реванш!`;
   }
 
-  if (summaryMyName) summaryMyName.textContent = myName;
+  if (summaryMyName) summaryMyName.textContent = myName || currentUser.username;
+  if (summaryMyAvatar && currentUser.avatar) summaryMyAvatar.src = currentUser.avatar;
   if (summaryMyScore) summaryMyScore.textContent = myScore;
   if (summaryMyMaxTile) summaryMyMaxTile.textContent = `🎯 ${myMaxTile}`;
 
@@ -608,12 +619,11 @@ function getMaxTile() {
 /* ========================================================
    7. Discord Identity & Final Score Saving
 ======================================================== */
-async function initDiscord() {
+async function fetchProfile() {
   const urlParams = new URLSearchParams(window.location.search);
   const channelIdParam = urlParams.get('channel_id');
   if (channelIdParam) roomId = channelIdParam;
 
-  // Автоматический перенос профиля Discord через сервер бота
   try {
     const identRes = await fetch(`/api/identify?channelId=${roomId}`);
     if (identRes.ok) {
@@ -624,11 +634,20 @@ async function initDiscord() {
         currentUser.id = identData.user.userId;
         currentUser.username = identData.user.username;
         if (identData.user.avatar) currentUser.avatar = identData.user.avatar;
-        updateProfileUI();
-        console.log(`[профиль] Портирован Discord профиль: ${currentUser.username} (${currentUser.id})`);
       }
+      if (identData.bestScore !== undefined && identData.bestScore > 0) {
+        setBestScore(identData.bestScore);
+      }
+      updateProfileUI();
+      console.log(`[профиль] Discord профиль: ${currentUser.username} (${currentUser.id})`);
     }
-  } catch {}
+  } catch (err) {
+    console.warn('[профиль] Ошибка получения профиля:', err);
+  }
+}
+
+async function initDiscord() {
+  await fetchProfile();
 
   // Попытка нативного OAuth в Discord SDK
   try {
@@ -636,7 +655,10 @@ async function initDiscord() {
     discordSdk = new DiscordSDK(CLIENT_ID);
     await discordSdk.ready();
 
-    if (discordSdk.channelId) roomId = discordSdk.channelId;
+    if (discordSdk.channelId) {
+      roomId = discordSdk.channelId;
+      await fetchProfile();
+    }
 
     const { code } = await discordSdk.commands.authorize({
       client_id: CLIENT_ID,
@@ -661,9 +683,10 @@ async function initDiscord() {
       currentUser.id = discordSdk.user.id;
       currentUser.username = discordSdk.user.username;
       if (discordSdk.user.avatar) {
-        currentUser.avatar = `https://cdn.discordapp.com/avatars/${discordSdk.user.id}/${discordSdk.user.avatar}.png?size=128`;
+        currentUser.avatar = `https://cdn.discordapp.com/avatars/${discordSdk.user.id}/${discordSdk.user.avatar}.png?size=256`;
       }
       updateProfileUI();
+      fetchUserBestScore();
     }
   } catch (err) {
     console.log('[Discord SDK] Работа в связке с сервером:', err.message);
@@ -705,7 +728,11 @@ async function saveFinalScoreToBot(finalScore) {
       if (data.userId && data.userId !== currentUser.id) {
         currentUser.id = data.userId;
       }
-      if (data.best) setBestScore(data.best);
+      if (data.best) {
+        setBestScore(data.best);
+        if (mainProfileRecord) mainProfileRecord.textContent = data.best;
+      }
+      showToast(`🏆 Рекорд ${finalScore} сохранён в профиль Discord!`);
       console.log(`[рекорд] Финальный счёт ${finalScore} успешно записан в профиль Discord!`);
     }
   } catch {}
@@ -714,6 +741,7 @@ async function saveFinalScoreToBot(finalScore) {
 function setBestScore(val) {
   bestScore = val;
   if (bestScoreEl) bestScoreEl.textContent = val;
+  if (mainProfileRecord) mainProfileRecord.textContent = val;
 }
 
 /* ========================================================
@@ -1077,5 +1105,6 @@ window.addEventListener('resize', () => {
 ======================================================== */
 initTheme();
 setupModes();
+updateProfileUI();
 initDiscord();
 initGame();
