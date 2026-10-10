@@ -1,0 +1,18 @@
+{
+  "name": "sud-bot",
+  "version": "1.0.0",
+  "description": "Discord-бот судимости по статьям УК РФ со случайным розыгрышем 1–15 и рекордами",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "invite": "node scripts/invite.js",
+    "test": "node scripts/test.js && node scripts/test-commands.js && node scripts/test-trigger.js && node scripts/test-presence.js && node scripts/test-2048.js && node scripts/test-random.js",
+    "weather": "node scripts/test-weather-live.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3"
+  }
+}
