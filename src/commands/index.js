@@ -50,7 +50,7 @@ function register(client, storage, tracker) {
 
   const cmdGame = new SlashCommandBuilder()
     .setName('2048')
-    .setDescription('Играть в 2048 прямо в чате');
+    .setDescription('Запустить 2048 прямо в Discord');
 
   const cmdRandom = new SlashCommandBuilder()
     .setName('рандом')

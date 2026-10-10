@@ -20,16 +20,21 @@ const boardEl = document.getElementById('board');
 const tileContainer = document.getElementById('tileContainer');
 const currentScoreEl = document.getElementById('currentScore');
 const bestScoreEl = document.getElementById('bestScore');
+const btnNewGame = document.getElementById('btnNewGame');
+const btnMenu = document.getElementById('btnMenu');
+const btnOverlayRestart = document.getElementById('btnOverlayRestart');
+const btnCloseMenu = document.getElementById('btnCloseMenu');
+
+const gameOverOverlay = document.getElementById('gameOverOverlay');
+const overlayScoreEl = document.getElementById('overlayScore');
+const menuOverlay = document.getElementById('menuOverlay');
+
 const userNameEl = document.getElementById('userName');
 const userAvatarEl = document.getElementById('userAvatar');
-const userBadgeEl = document.getElementById('userBadge');
-const overlayEl = document.getElementById('gameOverOverlay');
-const overlayScoreEl = document.getElementById('overlayScore');
-const btnRestart = document.getElementById('btnRestart');
-const btnOverlayRestart = document.getElementById('btnOverlayRestart');
+const userStatusEl = document.getElementById('userStatus');
 
 /* ========================================================
-   1. Discord Embedded App SDK Setup
+   1. Discord Embedded App SDK Integration
 ======================================================== */
 async function initDiscord() {
   try {
@@ -46,7 +51,6 @@ async function initDiscord() {
       scope: ['identify', 'guilds.members.read'],
     });
 
-    // Обмен кода на токен через наш бэкенд
     const res = await fetch('/api/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -58,7 +62,6 @@ async function initDiscord() {
       await discordSdk.commands.authenticate({ access_token });
     }
 
-    // Получаем данные текущего пользователя
     if (discordSdk.user) {
       currentUser.id = discordSdk.user.id;
       currentUser.username = discordSdk.user.username;
@@ -71,16 +74,19 @@ async function initDiscord() {
     fetchUserBestScore();
   } catch (err) {
     console.log('[Discord SDK] Работаем в обычном веб-режиме:', err.message);
-    userBadgeEl.textContent = 'ВЕБ-РЕЖИМ';
+    if (userStatusEl) userStatusEl.textContent = 'Веб-версия';
     const saved = localStorage.getItem('2048_best');
     if (saved) setBestScore(parseInt(saved, 10));
   }
 }
 
 function updateUserUI() {
-  userNameEl.textContent = currentUser.username;
-  if (currentUser.avatar) {
+  if (userNameEl) userNameEl.textContent = currentUser.username;
+  if (currentUser.avatar && userAvatarEl) {
     userAvatarEl.src = currentUser.avatar;
+  }
+  if (userStatusEl) {
+    userStatusEl.textContent = currentUser.id === 'guest' ? 'Гость' : 'Discord Activity';
   }
 }
 
@@ -120,7 +126,7 @@ async function syncBestScoreWithBot(newScore) {
 
 function setBestScore(val) {
   bestScore = val;
-  bestScoreEl.textContent = val;
+  if (bestScoreEl) bestScoreEl.textContent = val;
 }
 
 /* ========================================================
@@ -131,7 +137,8 @@ function initGame() {
   score = 0;
   isGameOver = false;
   currentScoreEl.textContent = '0';
-  overlayEl.classList.add('hidden');
+  gameOverOverlay.classList.add('hidden');
+  menuOverlay.classList.add('hidden');
 
   spawnTile();
   spawnTile();
@@ -152,8 +159,9 @@ function spawnTile() {
 
 function getCellMetrics() {
   const rect = boardEl.getBoundingClientRect();
-  const gap = 10;
-  const padding = 10;
+  const isMobile = window.innerWidth <= 400;
+  const gap = isMobile ? 8 : 12;
+  const padding = isMobile ? 8 : 12;
   const cellSize = (rect.width - padding * 2 - gap * (SIZE - 1)) / SIZE;
   return { gap, padding, cellSize };
 }
@@ -168,7 +176,8 @@ function renderBoard(mergedCoords = []) {
       if (val === 0) continue;
 
       const tile = document.createElement('div');
-      tile.className = `tile tile-${val}`;
+      const cls = val <= 2048 ? `tile-${val}` : 'tile-super';
+      tile.className = `tile ${cls}`;
       if (mergedCoords.some((m) => m.r === r && m.c === c)) {
         tile.classList.add('merged');
       }
@@ -286,7 +295,7 @@ function checkGameOver() {
 
 function showGameOver() {
   overlayScoreEl.textContent = score;
-  overlayEl.classList.remove('hidden');
+  gameOverOverlay.classList.remove('hidden');
 }
 
 /* ========================================================
@@ -297,24 +306,32 @@ window.addEventListener('keydown', (e) => {
     case 'ArrowLeft':
     case 'a':
     case 'A':
+    case 'ф':
+    case 'Ф':
       e.preventDefault();
       move('left');
       break;
     case 'ArrowRight':
     case 'd':
     case 'D':
+    case 'в':
+    case 'В':
       e.preventDefault();
       move('right');
       break;
     case 'ArrowUp':
     case 'w':
     case 'W':
+    case 'ц':
+    case 'Ц':
       e.preventDefault();
       move('up');
       break;
     case 'ArrowDown':
     case 's':
     case 'S':
+    case 'ы':
+    case 'Ы':
       e.preventDefault();
       move('down');
       break;
@@ -347,7 +364,7 @@ boardEl.addEventListener(
     const absX = Math.abs(dx);
     const absY = Math.abs(dy);
 
-    if (Math.max(absX, absY) > 30) {
+    if (Math.max(absX, absY) > 25) {
       if (absX > absY) {
         move(dx > 0 ? 'right' : 'left');
       } else {
@@ -360,8 +377,16 @@ boardEl.addEventListener(
   { passive: true },
 );
 
-btnRestart.addEventListener('click', initGame);
+btnNewGame.addEventListener('click', initGame);
 btnOverlayRestart.addEventListener('click', initGame);
+
+btnMenu.addEventListener('click', () => {
+  menuOverlay.classList.remove('hidden');
+});
+
+btnCloseMenu.addEventListener('click', () => {
+  menuOverlay.classList.add('hidden');
+});
 
 window.addEventListener('resize', () => renderBoard());
 

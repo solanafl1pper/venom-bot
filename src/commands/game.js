@@ -11,282 +11,98 @@ const {
 const g = require('../games/game2048');
 
 const TTL_MS = 2 * 60 * 60 * 1000;
-const BUTTONS = [
-  { dir: 'up', label: '⬆️', style: ButtonStyle.Primary },
-  { dir: 'left', label: '⬅️', style: ButtonStyle.Secondary },
-  { dir: 'down', label: '⬇️', style: ButtonStyle.Secondary },
-  { dir: 'right', label: '➡️', style: ButtonStyle.Secondary },
-];
 
-function buildRow(prefix, disabled = false) {
-  return new ActionRowBuilder().addComponents(
-    BUTTONS.map((b) =>
-      new ButtonBuilder()
-        .setCustomId(`${prefix}:${b.dir}`)
-        .setLabel(b.label)
-        .setStyle(b.style)
-        .setDisabled(disabled),
-    ),
-  );
-}
+function buildLaunchContainer(user, best, inviteUrl, channelName) {
+  const container = new ContainerBuilder().setAccentColor(0xedc22e);
 
-function buildControlRow(prefix, disabled = false) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${prefix}:end`)
-      .setLabel('🏁 Сдаться')
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(disabled),
-    new ButtonBuilder()
-      .setCustomId(`${prefix}:restart`)
-      .setLabel('🔄 Заново')
-      .setStyle(ButtonStyle.Success)
-      .setDisabled(disabled),
-    new ButtonBuilder()
-      .setCustomId(`${prefix}:activity`)
-      .setLabel('🚀 В войсе')
-      .setStyle(ButtonStyle.Primary)
-      .setDisabled(disabled),
-  );
-}
+  const textLines = [
+    '### 🎮 2048 · Discord Activity',
+    'Запускай игру прямо в Discord в один клик! Собирай плитки, бей рекорды и соревнуйся с друзьями.',
+    '',
+    `🏆 Твой рекорд: **${best || 0}**${channelName ? ` · Канал: **${channelName}**` : ''}`,
+  ];
 
-function tileColor(tile) {
-  if (tile >= 2048) return 0xf59e0b; // Золотой
-  if (tile >= 1024) return 0xec4899; // Неоновый розовый
-  if (tile >= 512) return 0x06b6d4;  // Неоновый циан
-  if (tile >= 128) return 0x3b82f6;  // Яркий синий
-  return 0x8b5cf6;                   // Фиолетовый
-}
-
-function tileBadge(tile) {
-  if (tile >= 2048) return '👑 МАСТЕР 2048';
-  if (tile >= 1024) return '🔥 ГРАНДМАСТЕР';
-  if (tile >= 512) return '💎 ЭКСПЕРТ';
-  if (tile >= 256) return '⚡ ПРОФИ';
-  if (tile >= 128) return '🎯 НА РАЗГОНЕ';
-  return '🕹️ СТАРТ';
-}
-
-function buildGameContainer(game, best, prefix, disabled = false) {
-  const tile = g.bestTile(game.board);
-  const container = new ContainerBuilder().setAccentColor(tileColor(tile));
-
-  const text = [
-    `### 🎮 2048 · ${tileBadge(tile)}`,
-    '```',
-    g.render(game.board),
-    '```',
-    `⚡ Счёт: **${game.score}** · ⭐ Макс: **${tile}** · 🎲 Ходов: **${game.moves}**`,
-    best ? `🏆 Твой рекорд: **${best}**` : '✨ Установи первый рекорд!',
-  ].join('\n');
-
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
-  if (prefix) {
-    container.addActionRowComponents(buildRow(prefix, disabled), buildControlRow(prefix, disabled));
+  if (inviteUrl) {
+    textLines.push('', `👉 **Инвайт в игру:** ${inviteUrl}`);
   }
-  return container;
-}
 
-function buildFinishedGameContainer(game, best, reason) {
-  const tile = g.bestTile(game.board);
-  const won = tile >= g.TARGET;
-  const headline =
-    reason === 'end'
-      ? '👋 Партия завершена'
-      : won
-        ? '👑 ПОБЕДА! Плитка 2048 собрана!'
-        : '💥 Игра окончена · Ходов больше нет';
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(textLines.join('\n')));
 
-  const container = new ContainerBuilder().setAccentColor(won ? 0xf59e0b : 0xfca5a5);
+  if (inviteUrl) {
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setStyle(ButtonStyle.Link)
+        .setLabel('🚀 Запустить 2048')
+        .setURL(inviteUrl),
+    );
+    container.addActionRowComponents(row);
+  }
 
-  const text = [
-    `### ${headline}`,
-    '```',
-    g.render(game.board),
-    '```',
-    `🎯 Итоговый счёт: **${game.score}** · ⭐ Макс: **${tile}** · 🏆 Рекорд: **${best ?? game.score}**`,
-  ].join('\n');
-
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
   return container;
 }
 
 function registerGame(client, storage) {
-  const games = new Map(); // messageId -> { userId, game }
-
-  const stopTimer = (messageId) => {
-    const entry = games.get(messageId);
-    if (entry?.timer) clearTimeout(entry.timer);
-    games.delete(messageId);
-  };
-
-  const remember = (messageId, userId, game) => {
-    stopTimer(messageId);
-    const timer = setTimeout(() => games.delete(messageId), TTL_MS);
-    timer.unref?.();
-    games.set(messageId, { userId, game, timer });
-  };
-
-  const saveBest = (userId, score) => {
-    const best = storage.bestScore('2048', userId);
-    if (score > best) {
-      storage.setBestScore('2048', userId, score);
-      return score;
-    }
-    return best;
-  };
-
   client.handleGame = async (interaction) => {
     const userId = interaction.user.id;
-    const game = g.createGame();
-    const best = storage.bestScore('2048', userId);
-    const prefix = `g2048:${userId}`;
+    const best = storage ? storage.bestScore('2048', userId) : 0;
+    const guild = interaction.guild;
 
-    const container = buildGameContainer(game, best, prefix);
-    const message = await interaction.editReply({
+    // Ищем голосовой канал: сначала где сидит автор, иначе любой доступный на сервере
+    let voiceChannel = interaction.member?.voice?.channel;
+    if (!voiceChannel && guild?.channels?.cache) {
+      voiceChannel =
+        guild.channels.cache.find(
+          (c) =>
+            c.isVoiceBased() &&
+            c.permissionsFor(guild.members.me || client.user.id)?.has?.('CreateInstantInvite'),
+        ) || guild.channels.cache.find((c) => c.isVoiceBased());
+    }
+
+    let inviteUrl = null;
+    let channelName = null;
+
+    if (voiceChannel && typeof voiceChannel.createInvite === 'function') {
+      channelName = voiceChannel.name;
+      try {
+        // Создаём инвайт для активности
+        const invite = await voiceChannel.createInvite({
+          targetType: 2, // InviteTargetType.EmbeddedApplication
+          targetApplication: client.user.id,
+          maxAge: 86400,
+          maxUses: 0,
+        });
+        inviteUrl = invite.url;
+      } catch {
+        try {
+          // Запасной вариант — стандартный инвайт в канал
+          const fallbackInvite = await voiceChannel.createInvite({
+            maxAge: 86400,
+            maxUses: 0,
+          });
+          inviteUrl = fallbackInvite.url;
+        } catch {
+          /* нет прав на создание инвайта */
+        }
+      }
+    }
+
+    const container = buildLaunchContainer(interaction.user, best, inviteUrl, channelName);
+
+    await interaction.editReply({
       components: [container],
       flags: MessageFlags.IsComponentsV2,
     });
-
-    remember(message.id, userId, game);
-    collect(message, userId);
   };
 
-  function collect(message, userId) {
-    const prefix = `g2048:${userId}`;
-    const collector = message.createMessageComponentCollector({
-      filter: (i) => i.customId.startsWith(`${prefix}:`),
-      time: TTL_MS,
-    });
-
-    collector.on('collect', async (i) => {
-      const entry = games.get(message.id);
-      if (!entry) {
-        const closed = new ContainerBuilder()
-          .setAccentColor(0xfca5a5)
-          .addTextDisplayComponents(new TextDisplayBuilder().setContent('### ⏳ Партия закрыта\nНачни новую: **/2048**'));
-        await i.reply({ components: [closed], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] }).catch(() => {});
-        return;
-      }
-
-      const dir = i.customId.split(':')[2];
-
-      if (dir === 'activity') {
-        const member = i.member;
-        const voiceChannel = member?.voice?.channel;
-        if (!voiceChannel) {
-          const hint = new ContainerBuilder()
-            .setAccentColor(0xfca5a5)
-            .addTextDisplayComponents(
-              new TextDisplayBuilder().setContent(
-                '### 🎙️ Зайди в голосовой канал\nЧтобы запустить активность 2048, сначала подключись к любому голосовому каналу сервера и нажми кнопку снова!',
-              ),
-            );
-          await i.reply({ components: [hint], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] }).catch(() => {});
-          return;
-        }
-
-        try {
-          const invite = await voiceChannel.createInvite({
-            targetType: 2, // InviteTargetType.EmbeddedApplication
-            targetApplication: client.user.id,
-            maxAge: 3600,
-            maxUses: 0,
-          });
-          const card = new ContainerBuilder()
-            .setAccentColor(0x5865f2)
-            .addTextDisplayComponents(
-              new TextDisplayBuilder().setContent(
-                `### 🚀 Активность 2048 запущена!\nПодключайся к каналу <#${voiceChannel.id}> и жми играть:\nhttps://discord.gg/${invite.code}`,
-              ),
-            );
-          await i.reply({ components: [card], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] }).catch(() => {});
-        } catch {
-          const fallbackCard = new ContainerBuilder()
-            .setAccentColor(0x38bdf8)
-            .addTextDisplayComponents(
-              new TextDisplayBuilder().setContent(
-                `### 🚀 2048 в войсе\nЗайди в канал <#${voiceChannel.id}>, нажми значок ракеты **🚀** внизу экрана и выбери **2048**!`,
-              ),
-            );
-          await i.reply({ components: [fallbackCard], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] }).catch(() => {});
-        }
-        return;
-      }
-
-      await i.deferUpdate().catch(() => {});
-
-      if (dir === 'end' || dir === 'restart') {
-        stopTimer(message.id);
-        const best = saveBest(userId, entry.game.score);
-
-        if (dir === 'end') {
-          const finished = buildFinishedGameContainer(entry.game, best, 'end');
-          await message.edit({
-            components: [finished],
-            flags: MessageFlags.IsComponentsV2,
-          });
-          return;
-        }
-
-        entry.game = g.createGame();
-        games.set(message.id, { ...entry, game: entry.game });
-        remember(message.id, userId, entry.game);
-        const fresh = buildGameContainer(entry.game, best, prefix);
-        await message.edit({
-          components: [fresh],
-          flags: MessageFlags.IsComponentsV2,
-        });
-        return;
-      }
-
-      const result = g.applyMove(entry.game, dir);
-      if (!result.changed) {
-        const hint = new ContainerBuilder()
-          .setAccentColor(0xfca5a5)
-          .addTextDisplayComponents(new TextDisplayBuilder().setContent('Так поле не сдвинется. Попробуй другую стрелку.'));
-        await i.followUp({ components: [hint], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] }).catch(() => {});
-        return;
-      }
-
-      entry.game = result.state;
-      const best = saveBest(userId, entry.game.score);
-
-      if (result.gameOver) {
-        stopTimer(message.id);
-        const over = buildFinishedGameContainer(entry.game, best, 'over');
-        await message.edit({
-          components: [over],
-          flags: MessageFlags.IsComponentsV2,
-        });
-        return;
-      }
-
-      const updated = buildGameContainer(entry.game, best, prefix);
-      await message.edit({
-        components: [updated],
-        flags: MessageFlags.IsComponentsV2,
-      });
-    });
-
-    collector.on('end', () => {
-      const entry = games.get(message.id);
-      if (!entry) return;
-      if (entry.timer) clearTimeout(entry.timer);
-      games.delete(message.id);
-    });
-  }
-
-  return { games, client };
+  return { client };
 }
 
 module.exports = {
   registerGame,
-  buildGameContainer,
-  buildFinishedGameContainer,
-  buildEmbed: (game, best) => buildGameContainer(game, best),
-  buildFinishedEmbed: (game, best, reason) => buildFinishedGameContainer(game, best, reason),
-  buildRow,
-  buildControlRow,
+  buildLaunchContainer,
+  buildGameContainer: (game, best) => buildLaunchContainer(null, best, null, null),
+  buildFinishedGameContainer: (game, best) => buildLaunchContainer(null, best, null, null),
+  buildEmbed: (game, best) => buildLaunchContainer(null, best, null, null),
+  buildFinishedEmbed: (game, best) => buildLaunchContainer(null, best, null, null),
   TTL_MS,
 };
