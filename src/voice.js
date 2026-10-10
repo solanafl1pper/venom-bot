@@ -232,12 +232,14 @@ class VoiceTracker {
           ? [...c.members.values()].filter((m) => !m.user?.bot).map((m) => `<@${m.id}>`)
           : [];
         const totalMs = this.getChannelLiveTime(c.id);
-        channels.push({
-          id: c.id,
-          name: c.name,
-          totalMs,
-          activeMembers,
-        });
+        if (totalMs > 0 || activeMembers.length > 0) {
+          channels.push({
+            id: c.id,
+            name: c.name,
+            totalMs,
+            activeMembers,
+          });
+        }
       }
     }
     return channels.sort((a, b) => {

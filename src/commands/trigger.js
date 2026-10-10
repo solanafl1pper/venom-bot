@@ -22,7 +22,7 @@ const SHEEP = '🐏🐏🐏';
 const SHEEP_IMAGE_URL =
   'https://media.discordapp.net/attachments/944945384550199296/1010517985829584946/1659812492677.gif';
 
-// Картинка для триггера «победа».
+// Картинка для триггеров «победа» и «рпп».
 const VICTORY_IMAGE_URL =
   'https://cdn.discordapp.com/attachments/1329531462814273546/1545431810161250454/togif.gif';
 
@@ -98,6 +98,7 @@ const TRIGGERS = [
     title: 'РОССИЯ ПУТИН ПОБЕДА! ZOV ZOV ZOV',
     color: 0xc084fc,
     messages: VICTORY_MESSAGES,
+    image: VICTORY_IMAGE_URL,
     words: ['РПП', 'рпп', 'р.п.п', 'р п п', 'р_п_п', 'р-п-п', 'р/п/п', 'ррр', 'PПП', 'RPP', 'ZOV', 'з о в'],
   },
   {
@@ -107,6 +108,7 @@ const TRIGGERS = [
     title: 'РОССИЯ ПУТИН ПОБЕДА! ZOV ZOV ZOV',
     color: 0xc084fc,
     messages: VICTORY_MESSAGES,
+    image: VICTORY_IMAGE_URL,
     words: ['3 слова победы', '3 слова', '3. слова. победы', '3-слова-победы', 'З слова победы'],
   },
   {
@@ -147,7 +149,7 @@ function matchTrigger(content) {
   return null;
 }
 
-function buildTriggerContainer(trigger, message, mention) {
+function buildTriggerContainer(trigger, message, mention, showImage = true) {
   const container = new ContainerBuilder().setAccentColor(trigger.color);
 
   const text = [
@@ -157,7 +159,7 @@ function buildTriggerContainer(trigger, message, mention) {
 
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
 
-  if (trigger.image) {
+  if (showImage && trigger.image) {
     container.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(
         new MediaGalleryItemBuilder().setURL(trigger.image),
@@ -168,12 +170,20 @@ function buildTriggerContainer(trigger, message, mention) {
   return { container, embed: container };
 }
 
-function register(client) {
+function register(client, storage) {
   const lastFired = new Map();
   const sentTimer = new Map();
+  let victoryHitCount = 0;
 
   client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
+
+    if (storage && typeof storage.incrementMessages === 'function') {
+      storage.incrementMessages(message.author.id, {
+        username: message.author.username,
+        guildId: message.guildId,
+      });
+    }
 
     const trigger = matchTrigger(message.content);
     if (!trigger) return;
@@ -190,8 +200,20 @@ function register(client) {
       previous.delete().catch(() => {});
     }
 
+    // Картинка к победе и рпп появляется раз в пару сообщений (каждый 2-й раз)
+    let showImage = Boolean(trigger.image);
+    if (trigger.id === 'rpp' || trigger.id === 'victory' || trigger.id === 'three') {
+      victoryHitCount += 1;
+      showImage = victoryHitCount % 2 === 0;
+    }
+
     try {
-      const { container } = buildTriggerContainer(trigger, pickMessage(trigger.messages), `<@${message.author.id}>`);
+      const { container } = buildTriggerContainer(
+        trigger,
+        pickMessage(trigger.messages),
+        `<@${message.author.id}>`,
+        showImage,
+      );
       const payload = {
         components: [container],
         flags: MessageFlags.IsComponentsV2,

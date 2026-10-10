@@ -173,6 +173,20 @@ async function run(name, opts) {
     check('приватный ответ', st.payload?.ephemeral === true);
   }
 
+  console.log('\n/профиль:');
+  {
+    const st = await run('профиль', { userId: '10' });
+    check('ответ отправлен', st.replies + st.edits === 1);
+    check('контейнер профиля', Boolean(st.payload?.components?.[0]));
+    const text = JSON.stringify(st.payload);
+    check('содержит статистику', text.includes('Сообщений в чате') && text.includes('Рекорд в 2048'));
+  }
+  {
+    const stCreator = await run('профиль', { userId: '566547457568276494' });
+    const text = JSON.stringify(stCreator.payload);
+    check('особый статус создателя', text.includes('СОЗДАТЕЛЬ БОТА') && text.includes('Архитектор системы'));
+  }
+
   console.log('\nНеизвестная команда:');
   {
     const st = await run('нетакая');

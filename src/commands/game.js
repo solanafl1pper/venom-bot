@@ -45,16 +45,34 @@ function buildControlRow(prefix, disabled = false) {
   );
 }
 
+function tileColor(tile) {
+  if (tile >= 2048) return 0xf59e0b; // Золотой
+  if (tile >= 1024) return 0xec4899; // Неоновый розовый
+  if (tile >= 512) return 0x06b6d4;  // Неоновый циан
+  if (tile >= 128) return 0x3b82f6;  // Яркий синий
+  return 0x8b5cf6;                   // Фиолетовый
+}
+
+function tileBadge(tile) {
+  if (tile >= 2048) return '👑 МАСТЕР 2048';
+  if (tile >= 1024) return '🔥 ГРАНДМАСТЕР';
+  if (tile >= 512) return '💎 ЭКСПЕРТ';
+  if (tile >= 256) return '⚡ ПРОФИ';
+  if (tile >= 128) return '🎯 НА РАЗГОНЕ';
+  return '🕹️ СТАРТ';
+}
+
 function buildGameContainer(game, best, prefix, disabled = false) {
   const tile = g.bestTile(game.board);
-  const container = new ContainerBuilder().setAccentColor(0xa78bfa);
+  const container = new ContainerBuilder().setAccentColor(tileColor(tile));
 
   const text = [
-    '### 🎮 2048',
+    `### 🎮 2048 · ${tileBadge(tile)}`,
     '```',
     g.render(game.board),
     '```',
-    `🎯 Счёт: **${game.score}** · ⭐ Макс: **${tile}** · 🎲 Ходов: **${game.moves}**${best ? ` · 🏆 Рекорд: **${best}**` : ''}`,
+    `⚡ Счёт: **${game.score}** · ⭐ Макс: **${tile}** · 🎲 Ходов: **${game.moves}**`,
+    best ? `🏆 Твой рекорд: **${best}**` : '✨ Установи первый рекорд!',
   ].join('\n');
 
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
@@ -71,17 +89,17 @@ function buildFinishedGameContainer(game, best, reason) {
     reason === 'end'
       ? '👋 Партия завершена'
       : won
-        ? '🎉 Победа! Ты собрал 2048!'
-        : '☕ Ходов больше нет — хорошая игра!';
+        ? '👑 ПОБЕДА! Плитка 2048 собрана!'
+        : '💥 Игра окончена · Ходов больше нет';
 
-  const container = new ContainerBuilder().setAccentColor(won ? 0xfde047 : 0xfca5a5);
+  const container = new ContainerBuilder().setAccentColor(won ? 0xf59e0b : 0xfca5a5);
 
   const text = [
     `### ${headline}`,
     '```',
     g.render(game.board),
     '```',
-    `🎯 Итог: **${game.score}** · ⭐ Макс: **${tile}** · 🏆 Рекорд: **${best ?? game.score}**`,
+    `🎯 Итоговый счёт: **${game.score}** · ⭐ Макс: **${tile}** · 🏆 Рекорд: **${best ?? game.score}**`,
   ].join('\n');
 
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));

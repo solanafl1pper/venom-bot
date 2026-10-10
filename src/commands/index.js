@@ -12,6 +12,7 @@ const { registerWeather } = require('./weather');
 const { registerGame } = require('./game');
 const { handleRANDOM } = require('./random');
 const { registerVoice } = require('./voice');
+const { registerProfile } = require('./profile');
 const { VoiceTracker } = require('../voice');
 
 function register(client, storage, tracker) {
@@ -29,6 +30,13 @@ function register(client, storage, tracker) {
   const cmdHelp = new SlashCommandBuilder()
     .setName('помощь')
     .setDescription('Справка по командам бота');
+
+  const cmdProfile = new SlashCommandBuilder()
+    .setName('профиль')
+    .setDescription('Личный профиль: сообщения, судимости, рекорд 2048 и время в войсе')
+    .addUserOption((opt) =>
+      opt.setName('участник').setDescription('Кого проверить (по умолчанию — ты)').setRequired(false),
+    );
 
   const cmdWeather = new SlashCommandBuilder()
     .setName('погода')
@@ -63,6 +71,7 @@ function register(client, storage, tracker) {
     cmdSud,
     cmdTop,
     cmdHelp,
+    cmdProfile,
     cmdWeather,
     cmdGame,
     cmdRandom,
@@ -76,6 +85,7 @@ function register(client, storage, tracker) {
   registerWeather(client);
   registerGame(client, storage);
   registerVoice(client, voiceTracker);
+  registerProfile(client, storage, voiceTracker);
 
   // id прошлого ответа бота для «судимости» — чтобы удалять его при новой попытке.
   const lastSudMessage = new Map();
@@ -153,12 +163,13 @@ function register(client, storage, tracker) {
     });
   }
 
-  const needsDefer = new Set(['судимость', 'рейтинг', 'погода', '2048', 'рандом', 'войс', 'войстоп']);
+  const needsDefer = new Set(['судимость', 'рейтинг', 'профиль', 'погода', '2048', 'рандом', 'войс', 'войстоп']);
 
   const handlers = new Map([
     ['судимость', handleSud],
     ['рейтинг', handleTop],
     ['помощь', handleHelp],
+    ['профиль', (i) => client.handleProfile(i)],
     ['погода', (i) => client.handleWeather(i, storage)],
     ['2048', (i) => client.handleGame(i)],
     ['рандом', (i) => handleRANDOM(i)],

@@ -70,7 +70,7 @@ async function main() {
   voiceTracker.start(client);
 
   register(client, storage, voiceTracker);
-  trigger.register(client);
+  trigger.register(client, storage);
 
   if (trigger.SHEEP_IMAGE_URL) {
     console.log(`[картинка] триггер «аллах»: ${trigger.SHEEP_IMAGE_URL}`);
