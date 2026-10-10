@@ -25,12 +25,16 @@ export class SnakeGame {
     this.lastOpponent = null;
     this.duelPollTimer = null;
 
-    // Timing & Smooth Animation
-    this.speedMode = 'normal'; // 'normal' (120ms) | 'fast' (78ms)
-    this.stepInterval = 120;
+    // Timing & Instant Responsive Animation (82ms default for snappy arcade feel)
+    this.speedMode = 'normal'; // 'normal' (82ms) | 'fast' (62ms) | 'chill' (105ms)
+    this.stepInterval = 82;
     this.lastStepTime = performance.now();
     this.isRunning = false;
     this.rafId = null;
+
+    // Steering responsiveness: zero input lag
+    this.dirCommitted = false;
+    this.bufferedDir = null;
 
     this.score = 0;
     this.bestScore = 0;
@@ -43,7 +47,6 @@ export class SnakeGame {
       prevBody: [{ x: 5, y: 10 }, { x: 4, y: 10 }, { x: 3, y: 10 }],
       dir: { x: 1, y: 0 },
       nextDir: { x: 1, y: 0 },
-      inputQueue: [],
       isAlive: true,
       color: '#10b981',
       headColor: '#059669',
@@ -57,7 +60,6 @@ export class SnakeGame {
       prevBody: [{ x: 15, y: 10 }, { x: 16, y: 10 }, { x: 17, y: 10 }],
       dir: { x: -1, y: 0 },
       nextDir: { x: -1, y: 0 },
-      inputQueue: [],
       isAlive: true,
       color: '#f59e0b',
       headColor: '#d97706',
@@ -167,7 +169,7 @@ export class SnakeGame {
       this.render(1);
     });
 
-    // Keyboard Controls
+    // Keyboard Controls with immediate response
     window.addEventListener('keydown', (e) => {
       if (document.getElementById('sectionSnake')?.classList.contains('hidden')) return;
 
@@ -226,7 +228,7 @@ export class SnakeGame {
         const absX = Math.abs(dx);
         const absY = Math.abs(dy);
 
-        if (Math.max(absX, absY) > 20) {
+        if (Math.max(absX, absY) > 18) {
           if (absX > absY) {
             this.changeDirection(dx > 0 ? 1 : -1, 0);
           } else {
@@ -238,14 +240,16 @@ export class SnakeGame {
       }, { passive: true });
     }
 
-    // On-screen D-Pad buttons
+    // On-screen D-Pad buttons with instant touchstart (eliminates mobile 300ms click delay!)
     const bindDpad = (id, dx, dy) => {
       const btn = document.getElementById(id);
       if (btn) {
-        btn.addEventListener('click', (e) => {
+        const handler = (e) => {
           e.preventDefault();
           this.changeDirection(dx, dy);
-        });
+        };
+        btn.addEventListener('touchstart', handler, { passive: false });
+        btn.addEventListener('mousedown', handler);
       }
     };
     bindDpad('snakeBtnU', 0, -1);
@@ -324,7 +328,7 @@ export class SnakeGame {
 
   setSpeed(mode) {
     this.speedMode = mode;
-    this.stepInterval = mode === 'fast' ? 78 : 120;
+    this.stepInterval = mode === 'fast' ? 62 : 82;
     if (this.btnSpeedNormal) {
       this.btnSpeedNormal.classList.toggle('active', mode === 'normal');
     }
@@ -366,7 +370,6 @@ export class SnakeGame {
       ],
       dir: { x: 1, y: 0 },
       nextDir: { x: 1, y: 0 },
-      inputQueue: [],
       isAlive: true,
       color: '#10b981',
       headColor: '#059669',
@@ -379,20 +382,31 @@ export class SnakeGame {
     this.startPreviewLoop();
   }
 
+  // Мгновенный поворот без инпутлага
   changeDirection(dx, dy) {
     if (this.isGameOver || this.state === 'menu') return;
-    const queue = this.snake1.inputQueue;
-    const lastDir = queue.length > 0 ? queue[queue.length - 1] : this.snake1.dir;
 
-    // Запрет разворота на 180 градусов
-    if (lastDir.x === -dx && lastDir.x !== 0) return;
-    if (lastDir.y === -dy && lastDir.y !== 0) return;
+    const curDir = this.snake1.dir;
+
+    // Запрет разворота на 180 градусов в своё тело
+    if (curDir.x === -dx && curDir.x !== 0) return;
+    if (curDir.y === -dy && curDir.y !== 0) return;
 
     // Игнорируем нажатие той же кнопки
-    if (lastDir.x === dx && lastDir.y === dy) return;
+    if (curDir.x === dx && curDir.y === dy) return;
 
-    if (queue.length < 2) {
-      queue.push({ x: dx, y: dy });
+    if (!this.dirCommitted) {
+      // Первый поворот в текущем шаге — применяется МГНОВЕННО на ближайшем шаге
+      this.snake1.nextDir = { x: dx, y: dy };
+      this.dirCommitted = true;
+    } else {
+      // Буферизируем максимум 1 следующий поворот (для моментального зигзага)
+      const nd = this.snake1.nextDir;
+      if ((nd.x !== -dx || nd.x === 0) && (nd.y !== -dy || nd.y === 0)) {
+        if (nd.x !== dx || nd.y !== dy) {
+          this.bufferedDir = { x: dx, y: dy };
+        }
+      }
     }
   }
 
@@ -435,7 +449,6 @@ export class SnakeGame {
       prevBody: [{ x: 4, y: 4 }, { x: 3, y: 4 }, { x: 2, y: 4 }],
       dir: { x: 1, y: 0 },
       nextDir: { x: 1, y: 0 },
-      inputQueue: [],
       isAlive: true,
       color: '#10b981',
       headColor: '#059669',
@@ -447,7 +460,6 @@ export class SnakeGame {
       prevBody: [{ x: 15, y: 15 }, { x: 16, y: 15 }, { x: 17, y: 15 }],
       dir: { x: -1, y: 0 },
       nextDir: { x: -1, y: 0 },
-      inputQueue: [],
       isAlive: true,
       color: '#f59e0b',
       headColor: '#d97706',
@@ -464,6 +476,8 @@ export class SnakeGame {
     this.state = 'playing';
     this.isGameOver = false;
     this.score = 0;
+    this.dirCommitted = false;
+    this.bufferedDir = null;
     this.onScoreUpdate(0, this.bestScore);
 
     if (this.menuOverlay) this.menuOverlay.classList.add('hidden');
@@ -477,7 +491,6 @@ export class SnakeGame {
       prevBody: [{ x: 5, y: 10 }, { x: 4, y: 10 }, { x: 3, y: 10 }],
       dir: { x: 1, y: 0 },
       nextDir: { x: 1, y: 0 },
-      inputQueue: [],
       isAlive: true,
       color: '#10b981',
       headColor: '#059669',
@@ -498,6 +511,8 @@ export class SnakeGame {
     this.state = 'duel_playing';
     this.isGameOver = false;
     this.isBotActive = withBot;
+    this.dirCommitted = false;
+    this.bufferedDir = null;
 
     if (this.menuOverlay) this.menuOverlay.classList.add('hidden');
     if (this.lobbyOverlay) this.lobbyOverlay.classList.add('hidden');
@@ -525,7 +540,6 @@ export class SnakeGame {
       prevBody: [{ x: 4, y: 4 }, { x: 3, y: 4 }, { x: 2, y: 4 }],
       dir: { x: 1, y: 0 },
       nextDir: { x: 1, y: 0 },
-      inputQueue: [],
       isAlive: true,
       color: '#10b981',
       headColor: '#059669',
@@ -538,7 +552,6 @@ export class SnakeGame {
       prevBody: [{ x: 15, y: 15 }, { x: 16, y: 15 }, { x: 17, y: 15 }],
       dir: { x: -1, y: 0 },
       nextDir: { x: -1, y: 0 },
-      inputQueue: [],
       isAlive: true,
       color: '#f59e0b',
       headColor: '#d97706',
@@ -606,9 +619,12 @@ export class SnakeGame {
   step() {
     if (this.isGameOver) return;
 
-    // 1. Потребляем очередь направления Змейки 1
-    if (this.snake1.inputQueue.length > 0) {
-      this.snake1.nextDir = this.snake1.inputQueue.shift();
+    // 1. Применяем накопленные повороты
+    this.dirCommitted = false;
+    if (this.bufferedDir) {
+      this.snake1.nextDir = this.bufferedDir;
+      this.bufferedDir = null;
+      this.dirCommitted = true;
     }
     this.snake1.dir = { ...this.snake1.nextDir };
 

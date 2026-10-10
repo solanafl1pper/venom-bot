@@ -910,11 +910,15 @@
       background: var(--overlay-bg);
       border-radius: 12px;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
       backdrop-filter: blur(4px);
       z-index: 50;
-      padding: 14px;
+      padding: 6px;
+      box-sizing: border-box;
+      overflow-y: auto;
+      scrollbar-width: thin;
     }
 
     .overlay.hidden {
@@ -924,27 +928,31 @@
     .overlay-box {
       background: var(--modal-bg);
       border-radius: 12px;
-      padding: 20px 22px;
+      padding: 10px 12px;
       text-align: center;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
       border: 2px solid var(--modal-border);
       width: 100%;
-      max-width: 380px;
+      max-width: 330px;
+      box-sizing: border-box;
+      margin: auto 0;
+      max-height: 98%;
+      overflow-y: auto;
     }
 
     .overlay-title {
       color: var(--text-main);
-      font-size: 24px;
+      font-size: 17px;
       font-weight: 900;
-      margin-bottom: 6px;
+      margin: 0 0 2px 0;
     }
 
     .overlay-desc {
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 700;
       color: var(--text-muted);
-      margin-bottom: 14px;
-      line-height: 1.4;
+      margin: 0 0 6px 0;
+      line-height: 1.25;
     }
 
     /* ========================================================
@@ -953,7 +961,8 @@
     .lobby-box {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 5px;
+      padding: 8px 10px;
     }
 
     .lobby-players-card {
@@ -963,7 +972,7 @@
       background: var(--duel-bg);
       border: 2px solid var(--duel-border);
       border-radius: 10px;
-      padding: 12px 10px;
+      padding: 4px 6px;
     }
 
     .lobby-player {
@@ -974,13 +983,13 @@
     }
 
     .lobby-avatar {
-      width: 52px;
-      height: 52px;
+      width: 34px;
+      height: 34px;
       border-radius: 50%;
-      border: 3px solid #5865f2;
+      border: 2px solid #5865f2;
       overflow: hidden;
       background: #2b2d31;
-      margin-bottom: 6px;
+      margin-bottom: 2px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -997,21 +1006,21 @@
     }
 
     .lobby-name {
-      font-size: 13px;
+      font-size: 10px;
       font-weight: 900;
       color: var(--text-main);
-      max-width: 110px;
+      max-width: 90px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
     .lobby-status-pill {
-      font-size: 10px;
+      font-size: 8px;
       font-weight: 800;
-      padding: 2px 6px;
-      border-radius: 10px;
-      margin-top: 4px;
+      padding: 1px 4px;
+      border-radius: 6px;
+      margin-top: 1px;
       background: rgba(16, 185, 129, 0.15);
       color: #10b981;
     }
@@ -1022,7 +1031,7 @@
     }
 
     .lobby-vs {
-      font-size: 16px;
+      font-size: 13px;
       font-weight: 900;
       color: #ef4444;
     }
@@ -1030,18 +1039,23 @@
     .lobby-actions {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 4px;
+    }
+
+    .lobby-actions .btn {
+      padding: 6px 10px !important;
+      font-size: 11px !important;
     }
 
     .lobby-invite-group {
       display: flex;
-      gap: 6px;
+      gap: 5px;
     }
 
     /* Duel Results */
     .duel-result-icon {
-      font-size: 46px;
-      margin-bottom: 4px;
+      font-size: 36px;
+      margin-bottom: 2px;
     }
 
     .duel-summary-cards {
@@ -1117,20 +1131,20 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
-      max-width: 340px;
-      padding: 22px 18px;
+      gap: 6px;
+      max-width: 320px;
+      padding: 10px 12px;
     }
 
     .snake-menu-badge {
       background: rgba(16, 185, 129, 0.15);
       color: #10b981;
       border: 1px solid rgba(16, 185, 129, 0.35);
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 900;
       letter-spacing: 1px;
-      padding: 3px 10px;
-      border-radius: 12px;
+      padding: 2px 8px;
+      border-radius: 10px;
       text-transform: uppercase;
     }
 
@@ -1139,22 +1153,22 @@
       background: var(--duel-bg);
       border: 2px solid var(--duel-border);
       border-radius: 10px;
-      padding: 8px 12px;
+      padding: 5px 10px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       box-sizing: border-box;
-      margin: 4px 0 6px 0;
+      margin: 2px 0 4px 0;
     }
 
     .snake-record-label {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 800;
       color: var(--text-muted);
     }
 
     .snake-record-val {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 900;
       color: #10b981;
     }
@@ -1163,16 +1177,16 @@
       width: 100%;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 5px;
     }
 
     .snake-btn-play {
       background: #10b981 !important;
       color: #ffffff !important;
-      font-size: 15px !important;
-      padding: 12px 16px !important;
-      border-radius: 10px !important;
-      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4) !important;
+      font-size: 13px !important;
+      padding: 8px 14px !important;
+      border-radius: 9px !important;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35) !important;
       transition: transform 0.12s ease, filter 0.12s ease !important;
     }
 
@@ -1185,22 +1199,22 @@
       border: 2px solid var(--btn-border) !important;
       background: var(--btn-bg) !important;
       color: var(--text-main) !important;
-      font-size: 13px !important;
-      padding: 10px 14px !important;
-      border-radius: 10px !important;
+      font-size: 12px !important;
+      padding: 7px 10px !important;
+      border-radius: 9px !important;
     }
 
     .snake-speed-selector {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      margin-top: 4px;
+      gap: 6px;
+      margin-top: 2px;
       width: 100%;
     }
 
     .speed-label {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 800;
       color: var(--text-muted);
     }
@@ -1209,9 +1223,9 @@
       background: var(--btn-bg);
       border: 1px solid var(--btn-border);
       color: var(--text-muted);
-      border-radius: 8px;
-      padding: 4px 10px;
-      font-size: 11px;
+      border-radius: 7px;
+      padding: 3px 8px;
+      font-size: 10px;
       font-weight: 800;
       cursor: pointer;
       font-family: inherit;
@@ -1226,10 +1240,10 @@
     }
 
     .snake-controls-hint {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
       color: var(--text-muted);
-      margin: 4px 0 0 0;
+      margin: 2px 0 0 0;
       text-align: center;
     }
   </style>
