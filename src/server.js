@@ -137,11 +137,13 @@ function createServer(storage) {
 }
 
 function startServer(storage) {
+  console.log(`[веб-сервер] env: SERVER_PORT=${process.env.SERVER_PORT}, PORT=${process.env.PORT}`);
+
   const candidatePorts = [
+    Number(process.env.SERVER_PORT) || null,
     Number(process.env.PORT) || null,
     8080,
     3000,
-    80,
     5000,
   ].filter((p, i, arr) => p && arr.indexOf(p) === i);
 
@@ -151,14 +153,14 @@ function startServer(storage) {
     try {
       const server = createServer(storage);
       server.on('error', (err) => {
-        // Порт может быть недоступен без root (например 80) или уже занят
+        console.log(`[веб-сервер] Ошибка на порту ${port}: ${err.message}`);
       });
       server.listen(port, '0.0.0.0', () => {
         console.log(`[веб-сервер] 2048 Activity слушает 0.0.0.0:${port}`);
       });
       servers.push(server);
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.log(`[веб-сервер] Исключение на порту ${port}: ${err.message}`);
     }
   }
 
