@@ -6,17 +6,18 @@ const { tierInfo } = require('../data/articles');
 
 const WINDOW_DAYS = 3;
 
-// Мягкая палитра «дружеского бота» — без мрачных оттенков.
+// Легкая, воздушная и дружелюбная палитра для лампового бота
 const COLORS = {
-  base: 0x5865f2,
-  sheep: 0xfacc15,
-  zov: 0xa78bfa,
-  clean: 0x34d399,
-  warn: 0xfb7185,
+  base: 0x818cf8,   // мягкий лавандово-индиго
+  sheep: 0xfde047,  // солнечный теплый желтый
+  zov: 0xc084fc,    // мягкий фиалковый
+  clean: 0x34d399,  // свежая мята
+  warn: 0xfca5a5,   // мягкий персиково-коралловый
+  accent: 0x38bdf8, // легкий небесный
 };
 
 function fmtDuration(ms) {
-  if (ms <= 0) return 'сейчас';
+  if (ms <= 0) return 'прямо сейчас';
   const h = Math.floor(ms / (60 * 60 * 1000));
   const m = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
   if (h >= 24) {
@@ -26,6 +27,7 @@ function fmtDuration(ms) {
       ? `${d} ${plural(d, 'день', 'дня', 'дней')} ${rh} ч`
       : `${d} ${plural(d, 'день', 'дня', 'дней')}`;
   }
+  if (h === 0) return `${m} мин`;
   return `${h} ч ${m} мин`;
 }
 
@@ -41,12 +43,12 @@ function fmtDate(ts) {
 
 function articlesField(record) {
   if (!record || record.length === 0) {
-    return '✨ Чисто. Ни одной статьи, все сроки истекли.';
+    return '✨ *Чисто! Ни одной статьи, абсолютно чистая биография.*';
   }
   const shown = record
     .map((item, i) => {
       const tier = tierInfo(item.tier);
-      return `${i + 1}. 📕 **${item.article} ${item.part}** — ${item.title}\n　 ${item.sanction} · ${tier.name}`;
+      return `${i + 1}. 📜 **ст. ${item.article} ${item.part}** · *${item.title}*\n　 ↳ ${item.sanction} (${tier.name})`;
     })
     .join('\n');
   return shown.slice(0, 1024);
@@ -61,24 +63,24 @@ function buildSudEmbed({ user, mention, isRecord, count }) {
 
   const embed = new EmbedBuilder()
     .setColor(isRecord ? COLORS.sheep : color)
-    .setAuthor({ name: 'у нас тут своя судимость' })
+    .setAuthor({ name: '☕ Уголок судимостей для своих' })
     .setDescription(`${mention}`)
     .addFields(
       { name: '📖 Статьи', value: articlesField(record).slice(0, 1024) },
-      { name: 'Итог', value: statusLine(record), inline: true },
-      { name: 'Срок', value: sentenceFromPoints(points), inline: true },
+      { name: '⚖️ Вердикт', value: statusLine(record), inline: true },
+      { name: '⏳ Срок', value: sentenceFromPoints(points), inline: true },
       { name: '📚 Судимостей', value: `${record.length} из ${MAX_ARTICLES}`, inline: true },
       { name: '🏆 Рекорд', value: `${best} ${plural(best, 'статья', 'статьи', 'статей')}`, inline: true },
     )
     .setFooter({
-      text: `рейтинг ${ratingFor(user)} за ${WINDOW_DAYS} дня · попытка №${user.rolls || 0}`,
+      text: `рейтинг ${ratingFor(user)} за ${WINDOW_DAYS} дня · попытка #${user.rolls || 0} · чисто для своих`,
     })
     .setTimestamp();
 
   if (isRecord) {
     embed.addFields({
       name: '🏆 НОВЫЙ РЕКОРД',
-      value: `Ты словил **${record.length}** ${plural(record.length, 'статью', 'статьи', 'статей')} — больше, чем когда-либо!`,
+      value: `🎉 Ого! Ты словил **${record.length}** ${plural(record.length, 'статью', 'статьи', 'статей')} — это новый рекорд в нашей тусовке!`,
     });
   }
 
@@ -90,41 +92,44 @@ function buildCooldownEmbed({ user, mention, waitMs }) {
   const best = user.bestCount || record.length;
   return new EmbedBuilder()
     .setColor(COLORS.warn)
-    .setAuthor({ name: 'у нас тут своя судимость' })
-    .setDescription(`${mention} ⏳ **Кулдаун.**`)
+    .setAuthor({ name: '☕ Уголок судимостей для своих' })
+    .setDescription(`${mention} ⏳ **Кулдаун!**\nОтдыхаем от суда, наливай чаёк или иди играть в 2048.`)
     .addFields(
       { name: '⏳ До новой попытки', value: fmtDuration(waitMs), inline: true },
       { name: '📚 Сейчас в деле', value: `${record.length} из ${MAX_ARTICLES}`, inline: true },
       { name: '🏆 Рекорд', value: `${best} ${plural(best, 'статья', 'статьи', 'статей')}`, inline: true },
     )
-    .setFooter({ text: 'новая попытка будет доступна через 15 минут' })
+    .setFooter({ text: '☕ Кулдаун 15 минут — чтобы судьи успели передохнуть' })
     .setTimestamp();
 }
 
 function buildTopEmbed(storage, users) {
   const embed = new EmbedBuilder()
-    .setColor(COLORS.warn)
+    .setColor(COLORS.accent)
     .setTitle('🏆 Топ судимости')
-    .setDescription(`Лучший результат за последние ${WINDOW_DAYS} дня`);
+    .setDescription(`✨ Доска почёта нашего чата за последние ${WINDOW_DAYS} дня`);
 
   if (users.length === 0) {
-    embed.addFields({ name: 'Пока пусто', value: 'Никто ещё ни разу не погорел.' });
+    embed.addFields({
+      name: 'Пока пусто ✨',
+      value: 'Все чисты перед законом! Самое время кому-то крутануть /судимость.',
+    });
   } else {
     const rows = users.map((u, i) => {
       const points = totalPoints(u.current);
       const score = ratingFor(u);
-      const medal = ['🥇', '🥈', '🥉'][i] || `${i + 1}.`;
+      const medal = ['🥇', '🥈', '🥉'][i] || `▫️ ${i + 1}.`;
       return (
-        `${medal} <@${u.userId}> — **${score}** очк\n` +
-        `　 срок ${sentenceFromPoints(points)} · ${recordLine(u.current)} · 🏆${u.bestCount || 0}`
+        `${medal} <@${u.userId}> — **${score}** очков\n` +
+        `　 ↳ срок: ${sentenceFromPoints(points)} · ${recordLine(u.current)} · 🏆 рекорд: ${u.bestCount || 0}`
       );
     });
-    embed.addFields({ name: 'Рейтинг', value: rows.join('\n').slice(0, 1024) });
+    embed.addFields({ name: '🌟 Рейтинг компании', value: rows.join('\n').slice(0, 1024) });
   }
 
   const s = storage.stats();
   embed.setFooter({
-    text: `всего: ${s.users} · с судимостью: ${s.convicted} · рекорд: ${s.bestCount} ст.`,
+    text: `своих ребят в базе: ${s.users} · на карандаше: ${s.convicted} · рекорд чата: ${s.bestCount} ст.`,
   });
 
   return embed;
@@ -133,27 +138,27 @@ function buildTopEmbed(storage, users) {
 function buildHelpEmbed() {
   return new EmbedBuilder()
     .setColor(COLORS.base)
-    .setTitle('Как тут всё устроено')
+    .setTitle('✨ Уютная справка по боту')
     .setDescription(
-      `Каждый вызов /судимость — свежий розыгрыш: выпадает от 1 до ${MAX_ARTICLES} статей.\n` +
-        `Побьёшь свой рекорд — попадёшь в /рейтинг. Кулдаун между попытками — 15 минут.`,
+      `Бот сделан специально для нашего круга друзей! Крутим судимости, соревнуемся в рекордах, залипаем в 2048 и раскидываем пати в Доту.\n\n` +
+        `🎲 Каждый вызов **/судимость** — свежий розыгрыш: выпадает от 1 до ${MAX_ARTICLES} статей. Кулдаун — 15 минут.`,
     )
     .addFields(
-      { name: '/судимость', value: 'твоя судимость', inline: true },
-      { name: '/судимость @user', value: 'судимость друга (с пингом)', inline: true },
-      { name: '/рейтинг', value: 'топ-10 по строгости', inline: true },
-      { name: '/2048', value: 'играть в 2048 кнопками', inline: true },
-      { name: '/погода', value: 'погода в городе', inline: true },
-      { name: '/погода Казань', value: 'погода в конкретном городе', inline: true },
-      { name: '/рандом', value: 'случайный состав на Доту 2', inline: true },
+      { name: '/судимость', value: 'испытать удачу (1–15 статей)', inline: true },
+      { name: '/судимость @друг', value: 'проверить друга с пингом', inline: true },
+      { name: '/рейтинг', value: 'доска почёта нашего чата', inline: true },
+      { name: '/2048', value: 'уютная залипалка кнопками', inline: true },
+      { name: '/погода', value: 'как там за окном сейчас', inline: true },
+      { name: '/погода Казань', value: 'погода в любом городе', inline: true },
+      { name: '/рандом', value: 'собрать состав на Доту 2', inline: true },
     )
     .addFields({
-      name: '🗣 Слова-триггеры',
+      name: '🗣 Секретные триггеры',
       value:
-        'Пишешь в чат **рпп**, **победа**, **3 слова победы** или **аллах** — ' +
-        'бот отвечает сам. Регистр и точки не важны.',
+        'Пиши в чат слова **рпп**, **победа**, **3 слова победы** или **аллах** — ' +
+        'бот отвечает сам. Регистр и разделители не важны.',
     })
-    .setFooter({ text: `бот для своих · ${fmtDate(Date.now())}` });
+    .setFooter({ text: `ламповый бот для своих · ${fmtDate(Date.now())}` });
 }
 
 module.exports = { buildSudEmbed, buildCooldownEmbed, buildTopEmbed, buildHelpEmbed, fmtDuration, fmtDate, COLORS };

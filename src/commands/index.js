@@ -130,9 +130,9 @@ function register(client, storage) {
     } catch (err) {
       console.error(`[команда ${interaction.commandName}]`, err.message);
       const fallback = new EmbedBuilder()
-        .setColor(0xe74c3c)
+        .setColor(0xfca5a5)
         .setTitle('Ошибка')
-        .setDescription('Не удалось выполнить команду. Попробуй ещё раз.');
+        .setDescription('Что-то пошло не так, но это мелочи. Попробуй нажать ещё разок! ✨');
       try {
         if (interaction.deferred || interaction.replied) {
           await interaction.editReply({ embeds: [fallback] });

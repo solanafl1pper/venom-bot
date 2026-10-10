@@ -6,11 +6,12 @@ const { getWeather } = require('../weather');
 const DEFAULT_CITY = () => process.env.WEATHER_CITY || 'Москва';
 
 const TIPS = [
-  'Зонт в сумку, или будет мокро.',
-  'Если на улице так — сиди дома и играй в 2048.',
-  'Погода не портит настроение. Настроение портит погода.',
-  'Когда зонт не нужен — значит, будет дождь.',
-  'Температура терпимая. Куртка лишняя.',
+  '☕ Заваривай чай или кофе, самое время посидеть в войсе.',
+  '🎮 Идеальная погода, чтобы залипнуть в 2048 или катнуть в Доту.',
+  '🛋️ Если за окном сыро — плед, дискорд и чилл спасают.',
+  '☀️ Кайфовая погодка, не забудь открыть форточку подышать.',
+  '✨ Главное — чтобы в нашем чате было тепло и уютно.',
+  '🧥 Одевайся по погоде, нам твои сопли в войсе не нужны.',
 ];
 
 function pickTip(rng = Math.random) {
@@ -19,11 +20,11 @@ function pickTip(rng = Math.random) {
 
 function buildWeatherEmbed(weather, requested) {
   const embed = new EmbedBuilder()
-    .setColor(0x60a5fa)
+    .setColor(0x38bdf8)
     .setTitle(`${weather.emoji} ${weather.city}`)
     .addFields(
-      { name: 'Сейчас', value: `${weather.temp}\n${weather.text}`, inline: true },
-      { name: 'Статус', value: requested ? `спросил: ${requested}` : 'город по умолчанию', inline: true },
+      { name: '🌡️ За окном', value: `**${weather.temp}**\n${weather.text}`, inline: true },
+      { name: '📍 Локация', value: requested ? `запрос: **${requested}**` : 'город по умолчанию', inline: true },
     )
     .setFooter({ text: pickTip() })
     .setTimestamp();
@@ -33,12 +34,12 @@ function buildWeatherEmbed(weather, requested) {
 
 function buildErrorEmbed(city, err) {
   return new EmbedBuilder()
-    .setColor(0xfb7185)
-    .setTitle('🌧️ Не получилось')
+    .setColor(0xfca5a5)
+    .setTitle('🌧️ Ой, не вышло')
     .setDescription(
-      `Не смог узнать погоду${city ? ` для «${city}»` : ''}.\n` +
-        'Проверь название города или попробуй позже.\n' +
-        `Ответ сервера: \`${err}\``,
+      `Не получилось узнать погоду${city ? ` для «${city}»` : ''}.\n` +
+        'Проверь, правильно ли написан город, или попробуй чуть позже.\n' +
+        `Ответ погодного сервера: \`${err}\``,
     );
 }
 

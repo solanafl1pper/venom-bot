@@ -14,15 +14,15 @@ const BUTTONS = [
 function buildEmbed(game, best) {
   const tile = g.bestTile(game.board);
   const embed = new EmbedBuilder()
-    .setColor(0x8b5cf6)
-    .setTitle('2048')
+    .setColor(0xa78bfa)
+    .setTitle('✨ 2048 · Уютная залипалка')
     .setDescription(`\`\`\`\n${g.render(game.board)}\n\`\`\``)
     .addFields(
-      { name: 'Счёт', value: `${game.score}`, inline: true },
-      { name: 'Ходов', value: `${game.moves}`, inline: true },
-      { name: 'Максимум', value: `${tile}`, inline: true },
+      { name: '🎯 Счёт', value: `${game.score}`, inline: true },
+      { name: '🎲 Ходов', value: `${game.moves}`, inline: true },
+      { name: '⭐ Максимум', value: `${tile}`, inline: true },
     )
-    .setFooter({ text: best ? `рекорд: ${best}` : 'рекорд пока пустой' })
+    .setFooter({ text: best ? `личный рекорд: ${best} · играем на чилле` : 'рекорд пока пустой · задай планку!' })
     .setTimestamp();
 
   return embed;
@@ -40,13 +40,13 @@ function buildRow(prefix, disabled = false) {
   );
 }
 
-/** Вторая строка: сдаться и начать заново. */
+/** Вторая строка: закончить и начать заново. */
 function buildControlRow(prefix, disabled = false) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`${prefix}:end`)
-      .setLabel('🏁 Завершить')
-      .setStyle(ButtonStyle.Danger)
+      .setLabel('🏁 Закончить')
+      .setStyle(ButtonStyle.Secondary)
       .setDisabled(disabled),
     new ButtonBuilder()
       .setCustomId(`${prefix}:restart`)
@@ -61,21 +61,21 @@ function buildFinishedEmbed(game, best, reason) {
   const won = tile >= g.TARGET;
   const headline =
     reason === 'end'
-      ? '🏁 Игру завершил игрок'
+      ? '👋 Партия завершена'
       : won
-        ? '🏆 Собрал 2048!'
-        : '🁡 Ходов нет — конец';
+        ? '🎉 Победа! Ты собрал 2048!'
+        : '☕ Ходов больше нет — хорошая игра!';
 
   return new EmbedBuilder()
-    .setColor(won ? 0xfbbf24 : 0xfb7185)
+    .setColor(won ? 0xfde047 : 0xfca5a5)
     .setTitle(headline)
     .setDescription(`\`\`\`\n${g.render(game.board)}\n\`\`\``)
     .addFields(
-      { name: 'Счёт', value: `${game.score}`, inline: true },
-      { name: 'Максимум', value: `${tile}`, inline: true },
-      { name: 'Ходов', value: `${game.moves}`, inline: true },
+      { name: '🎯 Итоговый счёт', value: `${game.score}`, inline: true },
+      { name: '⭐ Максимум', value: `${tile}`, inline: true },
+      { name: '🎲 Сделано ходов', value: `${game.moves}`, inline: true },
     )
-    .setFooter({ text: `рекорд: ${best ?? game.score}` })
+    .setFooter({ text: `личный рекорд: ${best ?? game.score} · жми /2048 для новой игры` })
     .setTimestamp();
 }
 

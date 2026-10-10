@@ -63,19 +63,20 @@ function buildLineupEmbed({ lineup, roleName }) {
 
   const lines = rows.map((row) => {
     const who = row.member ? `<@${row.member.id}>` : 'слот свободен';
-    return `${row.pos.emoji} **${row.hero}** — ${row.pos.label}\n　 лайн: ${row.pos.lane} · ${who}`;
+    return `${row.pos.emoji} **${row.hero}** — ${row.pos.label}\n　 ↳ лайн: *${row.pos.lane}* · ${who}`;
   });
 
   const players = rows.filter((r) => r.member).map((r) => r.member.id);
 
   const embed = new EmbedBuilder()
-    .setColor(0x7c3aed)
-    .setTitle('🎲 Состав на Доту')
-    .addFields({ name: 'Кто за кем', value: lines.join('\n\n') })
+    .setColor(0x818cf8)
+    .setTitle('🎮 Состав на Доту · Играем вместе!')
+    .addFields({ name: '✨ Распределение по позициям', value: lines.join('\n\n') })
     .setFooter({
       text:
-        (source === 'stratz' ? 'герои и меты — Stratz' : 'герои — локальный список') +
-        (roleName ? ` · роль «${roleName}»` : ''),
+        (source === 'stratz' ? 'герои подобраны по мете Stratz' : 'герои из проверенного пула') +
+        (roleName ? ` · роль «${roleName}»` : '') +
+        ' · без тильта и на победку',
     })
     .setTimestamp();
 
@@ -84,13 +85,14 @@ function buildLineupEmbed({ lineup, roleName }) {
 
 function buildEmptyEmbed(roleId) {
   return new EmbedBuilder()
-    .setColor(0xfb7185)
+    .setColor(0xfca5a5)
     .setTitle('Никого не нашлось')
     .setDescription(
-      'В команде нужен участник с ролью, а её на сервере нет или участников с ней пока ноль.\n' +
+      'Для сбора команды нужны участники с ролью, а сейчас никого с ней нет на сервере.\n' +
         `ID роли: \`${roleId}\`\n\n` +
-        'Проверь, что роль выдана людям, и её ID совпадает с тем, что в `.env` (DOTA_ROLE_ID).',
-    );
+        'Проверь, что роль выдана ребятам, и её ID совпадает с `DOTA_ROLE_ID` в файле `.env`.',
+    )
+    .setFooter({ text: 'ждём сбор состава' });
 }
 
 async function handleRANDOM(interaction) {

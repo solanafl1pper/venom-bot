@@ -49,7 +49,7 @@ function worstTier(record) {
 
 function statusLine(record) {
   const points = totalPoints(record);
-  if (points === 0) return 'Судимости нет — чист перед законом';
+  if (points === 0) return '✨ Чист перед законом — святой человек';
   const tier = tierInfo(worstTier(record));
   return `${points} ${plural(points, 'очко', 'очка', 'очков')} тяжести · ${tier.name}`;
 }

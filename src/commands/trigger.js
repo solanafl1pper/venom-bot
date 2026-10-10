@@ -93,7 +93,7 @@ const TRIGGERS = [
     label: 'РПП',
     pattern: new RegExp(`${RPP}|${RRR}`),
     title: 'РОССИЯ ПУТИН ПОБЕДА! ZOV ZOV ZOV',
-    color: 0xa78bfa,
+    color: 0xc084fc,
     messages: VICTORY_MESSAGES,
     words: ['РПП', 'рпп', 'р.п.п', 'р п п', 'р_п_п', 'р-п-п', 'р/п/п', 'ррр', 'PПП', 'RPP', 'ZOV', 'з о в'],
   },
@@ -102,7 +102,7 @@ const TRIGGERS = [
     label: '3 слова победы',
     pattern: new RegExp(`${THREE}`),
     title: 'РОССИЯ ПУТИН ПОБЕДА! ZOV ZOV ZOV',
-    color: 0xa78bfa,
+    color: 0xc084fc,
     messages: VICTORY_MESSAGES,
     words: ['3 слова победы', '3 слова', '3. слова. победы', '3-слова-победы', 'З слова победы'],
   },
@@ -112,7 +112,7 @@ const TRIGGERS = [
     pattern: new RegExp(`${POBEDA}|${ZOV}`),
     raw: new RegExp(`${VICTORY_EN}`),
     title: 'РОССИЯ ПУТИН ПОБЕДА! ZOV ZOV ZOV',
-    color: 0xa78bfa,
+    color: 0xc084fc,
     messages: VICTORY_MESSAGES,
     image: VICTORY_IMAGE_URL,
     words: ['победа', 'ПОБЕДА', 'победу', 'победы', 'победой', 'victory', 'ZOV', 'зов'],
@@ -122,7 +122,7 @@ const TRIGGERS = [
     label: 'аллах',
     pattern: new RegExp(`${ALLAH}|${AKBAR}|${AKABAR}`),
     title: `${SHEEP} СТАДО В СБОРЕ ${SHEEP}`,
-    color: 0xfacc15,
+    color: 0xfde047,
     messages: SHEEP_MESSAGES,
     image: SHEEP_IMAGE_URL,
     words: ['аллах', 'АЛЛАХ', 'аллаха', 'аллаху', 'аллахом', 'аллахе', 'Аллахи', 'акбар', 'Аллах Акбар', 'акабар'],
@@ -148,7 +148,7 @@ function buildEmbed(trigger, message, mention) {
   const embed = new EmbedBuilder()
     .setColor(trigger.color)
     .setDescription(`${mention}\n\n${message}`)
-    .setFooter({ text: `услышали: «${trigger.label}»` })
+    .setFooter({ text: `услышали в чате: «${trigger.label}»` })
     .setTimestamp();
 
   if (trigger.image) embed.setImage(trigger.image);
