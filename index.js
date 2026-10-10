@@ -62,7 +62,6 @@ async function main() {
   }
 
   const storage = new Storage(path.join(__dirname, 'data', 'sud.json')).load();
-  startServer(storage, process.env.PORT || 3000);
 
   const client = new Client({
     intents: [
@@ -72,6 +71,8 @@ async function main() {
       GatewayIntentBits.GuildVoiceStates,
     ],
   });
+
+  startServer(storage, client);
 
   const voiceTracker = new VoiceTracker(storage);
   voiceTracker.start(client);

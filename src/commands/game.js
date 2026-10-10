@@ -47,6 +47,21 @@ function registerGame(client, storage) {
     const best = storage ? storage.bestScore('2048', userId) : 0;
     const guild = interaction.guild;
 
+    // Запоминаем, кто запустил команду для автоматической привязки рекорда в профиль
+    if (storage) {
+      if (!storage.data.meta) storage.data.meta = {};
+      const avatarUrl = typeof interaction.user.displayAvatarURL === 'function'
+        ? interaction.user.displayAvatarURL({ extension: 'png', size: 128 })
+        : null;
+      storage.data.meta.lastLaunch = {
+        userId,
+        username: interaction.user.username,
+        avatar: avatarUrl,
+        guildId: guild?.id || null,
+        at: Date.now(),
+      };
+    }
+
     // Ищем голосовой канал: сначала где сидит автор, иначе любой доступный на сервере
     let voiceChannel = interaction.member?.voice?.channel;
     if (!voiceChannel && guild?.channels?.cache) {
@@ -83,6 +98,18 @@ function registerGame(client, storage) {
         } catch {
           /* нет прав на создание инвайта */
         }
+      }
+
+      if (storage) {
+        if (!storage.data.meta.channelLaunches) storage.data.meta.channelLaunches = {};
+        storage.data.meta.channelLaunches[voiceChannel.id] = {
+          userId,
+          username: interaction.user.username,
+          avatar: typeof interaction.user.displayAvatarURL === 'function'
+            ? interaction.user.displayAvatarURL({ extension: 'png', size: 128 })
+            : null,
+          at: Date.now(),
+        };
       }
     }
 
