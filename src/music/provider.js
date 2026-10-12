@@ -1,11 +1,12 @@
+'use strict';
+
 const fs = require('node:fs');
 const path = require('node:path');
 const cp = require('node:child_process');
 const { Readable } = require('node:stream');
-const https = require('node:https');
 const { createAudioResource, StreamType } = require('@discordjs/voice');
 const YouTube = require('youtube-sr').default;
-const { Innertube, ClientType } = require('youtubei.js');
+const scdl = require('soundcloud-downloader').default;
 
 let cachedFfmpeg = null;
 function getFfmpegBinary() {
@@ -35,68 +36,12 @@ function getFfmpegBinary() {
   return cachedFfmpeg;
 }
 
-let innertubeClient = null;
-let soundcloudClientId = null;
-let soundcloudClientExpires = 0;
-
-async function getInnertube() {
-  if (!innertubeClient) {
-    innertubeClient = await Innertube.create({ client_type: ClientType.ANDROID });
-  }
-  return innertubeClient;
-}
-
-function httpGet(url, headers = {}) {
-  return new Promise((resolve, reject) => {
-    https.get(
-      url,
-      {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-          Referer: 'https://soundcloud.com/',
-          ...headers,
-        },
-      },
-      (res) => {
-        let data = '';
-        res.on('data', (c) => (data += c));
-        res.on('end', () => resolve({ status: res.statusCode, data }));
-        res.on('error', reject);
-      },
-    );
-  });
-}
-
-async function getSoundcloudClientId() {
-  const now = Date.now();
-  if (soundcloudClientId && now < soundcloudClientExpires) {
-    return soundcloudClientId;
-  }
-
-  try {
-    const res = await httpGet('https://soundcloud.com');
-    if (res.status === 200) {
-      const scriptUrls = [...res.data.matchAll(/<script[^>]+src="([^"]+\.js)"/g)].map((m) => m[1]);
-      for (const scriptUrl of scriptUrls.reverse()) {
-        const js = await httpGet(scriptUrl);
-        const m =
-          js.data.match(/client_id=([a-zA-Z0-9]{32})/) ||
-          js.data.match(/client_id:"([a-zA-Z0-9]{32})"/) ||
-          js.data.match(/"clientId":"([a-zA-Z0-9]{32})"/);
-        if (m) {
-          soundcloudClientId = m[1];
-          soundcloudClientExpires = now + 6 * 60 * 60 * 1000;
-          return soundcloudClientId;
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('[SoundCloud] Ошибка парсинга client_id:', err.message);
-  }
-
-  soundcloudClientId = 'kkwQI6ZGQuYhgXxczGGm6Ahx3K8a17q3';
-  return soundcloudClientId;
+function cleanTitleForSearch(title) {
+  if (!title) return '';
+  return title
+    .replace(/[\(\[](?:official\s*(?:video|audio|music\s*video|lyric\s*video)?|remaster(?:ed)?|4k|hd|lyrics?|visualizer|клип|премьера)[\)\]]/gi, '')
+    .replace(/\|.*$/, '')
+    .trim();
 }
 
 function isSoundCloudUrl(url) {
@@ -112,165 +57,222 @@ function extractYouTubeId(url) {
   return m && m[1].length === 11 ? m[1] : null;
 }
 
-async function resolveSoundCloud(query) {
-  const cid = await getSoundcloudClientId();
-  const isUrl = isSoundCloudUrl(query);
-
-  let track = null;
+/**
+ * Получение метаданных YouTube без авторизации через oEmbed / youtube-sr
+ */
+async function getYouTubeMetadata(urlOrQuery) {
+  const isUrl = isYouTubeUrl(urlOrQuery);
   if (isUrl) {
-    const resolveUrl = `https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(query)}&client_id=${cid}`;
-    const res = await httpGet(resolveUrl);
-    if (res.status === 200) {
-      track = JSON.parse(res.data);
-    }
-  }
-
-  if (!track) {
-    const cleanQuery = query.replace(/^sc:|^soundcloud:/i, '').trim();
-    const searchUrl = `https://api-v2.soundcloud.com/search/tracks?q=${encodeURIComponent(cleanQuery)}&client_id=${cid}&limit=1`;
-    const res = await httpGet(searchUrl);
-    if (res.status === 200) {
-      const data = JSON.parse(res.data);
-      track = data.collection?.[0];
-    }
-  }
-
-  if (!track || !track.media?.transcodings?.length) {
-    throw new Error('Трек не найден на SoundCloud или недоступен.');
-  }
-
-  const transcodings = track.media.transcodings;
-  const targetTranscoding =
-    transcodings.find((t) => t.format?.protocol === 'progressive') || transcodings[0];
-
-  const streamInfoRes = await httpGet(`${targetTranscoding.url}?client_id=${cid}`);
-  if (streamInfoRes.status !== 200) {
-    throw new Error('Не удалось получить поток SoundCloud.');
-  }
-
-  const streamInfo = JSON.parse(streamInfoRes.data);
-  const streamUrl = streamInfo.url;
-  if (!streamUrl) {
-    throw new Error('Прямая ссылка на аудио SoundCloud отсутствует.');
-  }
-
-  const durationSec = Math.round((track.duration || 0) / 1000);
-  const minutes = Math.floor(durationSec / 60);
-  const seconds = durationSec % 60;
-
-  return {
-    source: 'soundcloud',
-    title: track.title || 'SoundCloud Track',
-    author: track.user?.username || track.user?.name || 'SoundCloud',
-    url: track.permalink_url || query,
-    streamUrl,
-    durationFormatted: `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`,
-    durationSeconds: durationSec,
-    thumbnail: track.artwork_url || track.user?.avatar_url || null,
-  };
-}
-
-async function resolveYouTube(query) {
-  let videoId = extractYouTubeId(query);
-  let videoInfo = null;
-
-  if (videoId) {
     try {
-      videoInfo = await YouTube.getVideo(`https://www.youtube.com/watch?v=${videoId}`);
-    } catch {
-      videoInfo = { id: videoId, title: 'YouTube Video' };
+      const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(urlOrQuery)}&format=json`;
+      const res = await fetch(oembedUrl);
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          title: data.title,
+          author: data.author_name,
+          url: urlOrQuery,
+        };
+      }
+    } catch {}
+
+    const videoId = extractYouTubeId(urlOrQuery);
+    if (videoId) {
+      try {
+        const ytVideo = await YouTube.getVideo(`https://www.youtube.com/watch?v=${videoId}`);
+        if (ytVideo) {
+          return {
+            title: ytVideo.title,
+            author: ytVideo.channel?.name || 'YouTube',
+            url: `https://www.youtube.com/watch?v=${videoId}`,
+            durationFormatted: ytVideo.durationFormatted,
+          };
+        }
+      } catch {}
     }
-  } else {
-    videoInfo = await YouTube.searchOne(query);
-    if (!videoInfo) {
-      throw new Error('Видео на YouTube не найдено.');
-    }
-    videoId = videoInfo.id;
   }
 
+  try {
+    const ytVideo = await YouTube.searchOne(urlOrQuery);
+    if (ytVideo) {
+      return {
+        title: ytVideo.title,
+        author: ytVideo.channel?.name || 'YouTube',
+        url: ytVideo.url,
+        durationFormatted: ytVideo.durationFormatted,
+      };
+    }
+  } catch {}
+
+  return null;
+}
+
+/**
+ * Поиск полноценного воспроизводимого аудио-трека через SoundCloud
+ */
+async function findSoundCloudAudio(searchQuery) {
+  const clean = searchQuery.replace(/^sc:|^soundcloud:/i, '').trim();
+  const searchRes = await scdl.search({ query: clean, limit: 12, resourceType: 'tracks' }).catch(() => null);
+  const items = searchRes?.collection || [];
+
+  if (items.length === 0) {
+    throw new Error(`Трек не найден: ${searchQuery}`);
+  }
+
+  // Приоритет: треки длиннее 40 сек, чтобы отфильтровать 30-секундные превью
+  let best = items.find((t) => (t.duration / 1000) > 40 && t.permalink_url);
+  if (!best) {
+    best = items[0];
+  }
+
+  const durationSec = Math.round((best.duration || 0) / 1000);
+  const m = Math.floor(durationSec / 60);
+  const s = durationSec % 60;
+  const durationFormatted = `${m}:${s < 10 ? '0' : ''}${s}`;
+
   return {
-    source: 'youtube',
-    id: videoId,
-    title: videoInfo.title || 'YouTube Audio',
-    author: videoInfo.channel?.name || 'YouTube',
-    url: `https://www.youtube.com/watch?v=${videoId}`,
-    durationFormatted: videoInfo.durationFormatted || '—',
-    durationSeconds: videoInfo.duration ? Math.round(videoInfo.duration / 1000) : 0,
-    thumbnail: videoInfo.thumbnail?.url || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+    title: best.title || clean,
+    author: best.user?.username || best.user?.name || 'SoundCloud',
+    url: best.permalink_url,
+    durationFormatted,
+    durationSeconds: durationSec,
+    thumbnail: best.artwork_url || best.user?.avatar_url || null,
   };
 }
 
+/**
+ * Единая точка разрешения трека (YouTube или SoundCloud)
+ */
 async function resolveTrack(query) {
   const trimmed = query.trim();
-  if (isSoundCloudUrl(trimmed) || /^sc:|^soundcloud:/i.test(trimmed)) {
-    return await resolveSoundCloud(trimmed);
+
+  // 1. Прямая ссылка на SoundCloud
+  if (isSoundCloudUrl(trimmed)) {
+    const info = await scdl.getInfo(trimmed).catch(() => null);
+    if (info) {
+      const durSec = Math.round((info.duration || 0) / 1000);
+      const m = Math.floor(durSec / 60);
+      const s = durSec % 60;
+      return {
+        source: 'soundcloud',
+        title: info.title || 'SoundCloud Track',
+        author: info.user?.username || 'SoundCloud',
+        url: info.permalink_url || trimmed,
+        audioUrl: info.permalink_url || trimmed,
+        durationFormatted: `${m}:${s < 10 ? '0' : ''}${s}`,
+        durationSeconds: durSec,
+        thumbnail: info.artwork_url || null,
+      };
+    }
+    // Если getInfo не сработал, ищем как поисковый запрос
+    const scAudio = await findSoundCloudAudio(trimmed);
+    return {
+      source: 'soundcloud',
+      title: scAudio.title,
+      author: scAudio.author,
+      url: scAudio.url,
+      audioUrl: scAudio.url,
+      durationFormatted: scAudio.durationFormatted,
+      durationSeconds: scAudio.durationSeconds,
+      thumbnail: scAudio.thumbnail,
+    };
   }
-  return await resolveYouTube(trimmed);
+
+  // 2. Ссылка на YouTube
+  if (isYouTubeUrl(trimmed)) {
+    const ytMeta = await getYouTubeMetadata(trimmed);
+    const ytTitle = ytMeta?.title || trimmed;
+    const ytAuthor = ytMeta?.author || 'YouTube';
+    const cleaned = cleanTitleForSearch(ytTitle);
+    const searchTarget = ytAuthor && !cleaned.toLowerCase().includes(ytAuthor.toLowerCase())
+      ? `${cleaned} ${ytAuthor}`
+      : cleaned;
+
+    const scAudio = await findSoundCloudAudio(searchTarget).catch(() => findSoundCloudAudio(cleaned));
+
+    return {
+      source: 'youtube',
+      title: ytTitle,
+      author: ytAuthor,
+      url: ytMeta?.url || trimmed,
+      audioUrl: scAudio.url,
+      durationFormatted: ytMeta?.durationFormatted || scAudio.durationFormatted,
+      durationSeconds: scAudio.durationSeconds,
+      thumbnail: scAudio.thumbnail,
+    };
+  }
+
+  // 3. Поисковый запрос с префиксом SoundCloud (sc: / soundcloud:)
+  if (/^sc:|^soundcloud:/i.test(trimmed)) {
+    const scAudio = await findSoundCloudAudio(trimmed);
+    return {
+      source: 'soundcloud',
+      title: scAudio.title,
+      author: scAudio.author,
+      url: scAudio.url,
+      audioUrl: scAudio.url,
+      durationFormatted: scAudio.durationFormatted,
+      durationSeconds: scAudio.durationSeconds,
+      thumbnail: scAudio.thumbnail,
+    };
+  }
+
+  // 4. Обычный текстовый поиск песни по названию
+  // Сначала проверяем на YouTube для точного названия и автора
+  let ytMeta = null;
+  try {
+    ytMeta = await getYouTubeMetadata(trimmed);
+  } catch {}
+
+  const searchTarget = ytMeta ? `${cleanTitleForSearch(ytMeta.title)} ${ytMeta.author || ''}` : trimmed;
+  const scAudio = await findSoundCloudAudio(searchTarget).catch(() => findSoundCloudAudio(trimmed));
+
+  return {
+    source: ytMeta ? 'youtube' : 'soundcloud',
+    title: ytMeta?.title || scAudio.title,
+    author: ytMeta?.author || scAudio.author,
+    url: ytMeta?.url || scAudio.url,
+    audioUrl: scAudio.url,
+    durationFormatted: ytMeta?.durationFormatted || scAudio.durationFormatted,
+    durationSeconds: scAudio.durationSeconds,
+    thumbnail: scAudio.thumbnail,
+  };
 }
 
+/**
+ * Создание аудиопотока для голосового канала Discord (без ошибок блокировки IP и login required)
+ */
 async function createTrackAudioResource(track) {
   const ffmpeg = getFfmpegBinary();
+  const streamUrl = track.audioUrl || track.url;
 
-  if (track.source === 'soundcloud') {
-    const ffmpegProc = cp.spawn(ffmpeg, [
-      '-reconnect',
-      '1',
-      '-reconnect_streamed',
-      '1',
-      '-reconnect_delay_max',
-      '5',
-      '-i',
-      track.streamUrl,
-      '-f',
-      's16le',
-      '-ar',
-      '48000',
-      '-ac',
-      '2',
-      'pipe:1',
-    ]);
-
-    ffmpegProc.stderr.on('data', () => {});
-    ffmpegProc.on('error', (err) => console.error('[FFmpeg SoundCloud]', err.message));
-
-    const resource = createAudioResource(ffmpegProc.stdout, {
-      inputType: StreamType.Raw,
-      inlineVolume: true,
-    });
-    resource.ffmpegProc = ffmpegProc;
-    return resource;
+  if (!streamUrl) {
+    throw new Error('Ссылка на аудиопоток отсутствует.');
   }
 
-  if (track.source === 'youtube') {
-    const yt = await getInnertube();
-    const webStream = await yt.download(track.id, { type: 'audio' });
-    const nodeStream = Readable.fromWeb(webStream);
+  // Скачиваем аудио через soundcloud-downloader (надёжный CDN без логина)
+  const nodeStream = await scdl.download(streamUrl);
 
-    const ffmpegProc = cp.spawn(ffmpeg, [
-      '-i',
-      'pipe:0',
-      '-f',
-      's16le',
-      '-ar',
-      '48000',
-      '-ac',
-      '2',
-      'pipe:1',
-    ]);
+  const ffmpegProc = cp.spawn(ffmpeg, [
+    '-i', 'pipe:0',
+    '-f', 's16le',
+    '-ar', '48000',
+    '-ac', '2',
+    'pipe:1',
+  ]);
 
-    nodeStream.pipe(ffmpegProc.stdin);
-    ffmpegProc.stderr.on('data', () => {});
-    ffmpegProc.on('error', (err) => console.error('[FFmpeg YouTube]', err.message));
+  nodeStream.pipe(ffmpegProc.stdin);
 
-    const resource = createAudioResource(ffmpegProc.stdout, {
-      inputType: StreamType.Raw,
-      inlineVolume: true,
-    });
-    resource.ffmpegProc = ffmpegProc;
-    return resource;
-  }
+  ffmpegProc.stderr.on('data', () => {});
+  ffmpegProc.on('error', (err) => console.error('[FFmpeg Audio Stream]', err.message));
 
-  throw new Error(`Неизвестный источник трека: ${track.source}`);
+  const resource = createAudioResource(ffmpegProc.stdout, {
+    inputType: StreamType.Raw,
+    inlineVolume: true,
+  });
+
+  resource.ffmpegProc = ffmpegProc;
+  return resource;
 }
 
 module.exports = {

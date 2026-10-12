@@ -86,6 +86,7 @@ async function handleTikTokCommand(interaction) {
     });
 
     await interaction.editReply({
+      content: `🎬 **${data.title.slice(0, 100)}** (автор: @${data.author})`,
       components: [container],
       files: [attachment],
       flags: MessageFlags.IsComponentsV2,
@@ -158,6 +159,7 @@ async function handleChatMessage(message) {
     });
 
     await message.reply({
+      content: `🎬 **${data.title.slice(0, 100)}** (автор: @${data.author})`,
       components: [container],
       files: [attachment],
       flags: MessageFlags.IsComponentsV2,

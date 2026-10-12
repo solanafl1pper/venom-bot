@@ -202,7 +202,7 @@ async function handleMusicButtons(interaction) {
   if (!queue) {
     await interaction.reply({
       content: '❌ Музыкальный плеер сейчас не играет.',
-      ephemeral: true,
+      flags: [MessageFlags.Ephemeral],
     });
     return;
   }
@@ -210,18 +210,18 @@ async function handleMusicButtons(interaction) {
   if (customId === 'vplay_pause') {
     if (queue.isPaused) {
       queue.resume();
-      await interaction.reply({ content: '▶️ Воспроизведение продолжено!', ephemeral: true });
+      await interaction.reply({ content: '▶️ Воспроизведение продолжено!', flags: [MessageFlags.Ephemeral] });
     } else {
       queue.pause();
-      await interaction.reply({ content: '⏸️ Воспроизведение поставлено на паузу!', ephemeral: true });
+      await interaction.reply({ content: '⏸️ Воспроизведение поставлено на паузу!', flags: [MessageFlags.Ephemeral] });
     }
   } else if (customId === 'vplay_skip') {
     const skipped = queue.currentTrack?.title || 'трек';
     queue.skip();
-    await interaction.reply({ content: `⏭️ Пропущен: **${skipped}**!`, ephemeral: true });
+    await interaction.reply({ content: `⏭️ Пропущен: **${skipped}**!`, flags: [MessageFlags.Ephemeral] });
   } else if (customId === 'vplay_stop') {
     queue.stop();
-    await interaction.reply({ content: '⏹️ Музыка остановлена, бот вышел из войса.', ephemeral: true });
+    await interaction.reply({ content: '⏹️ Музыка остановлена, бот вышел из войса.', flags: [MessageFlags.Ephemeral] });
   } else if (customId === 'vplay_queue') {
     let text = queue.currentTrack
       ? `▶️ **Сейчас:** [${queue.currentTrack.title}](${queue.currentTrack.url})\n`
@@ -232,7 +232,7 @@ async function handleMusicButtons(interaction) {
     } else {
       text += '\n*Очередь пуста.*';
     }
-    await interaction.reply({ content: text, ephemeral: true });
+    await interaction.reply({ content: text, flags: [MessageFlags.Ephemeral] });
   }
 }
 
