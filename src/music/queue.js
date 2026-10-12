@@ -32,13 +32,13 @@ class GuildQueue {
   initPlayerEvents() {
     this.player.on(AudioPlayerStatus.Idle, () => {
       this.cleanupCurrentResource();
-      this.playNext();
+      this.playNext(true);
     });
 
     this.player.on('error', (err) => {
       console.error(`[Плеер ${this.guildId}] Ошибка:`, err.message);
       this.cleanupCurrentResource();
-      this.playNext();
+      this.playNext(true);
     });
   }
 
@@ -87,14 +87,14 @@ class GuildQueue {
     this.queue.push(track);
 
     if (!this.isPlaying) {
-      await this.playNext();
+      await this.playNext(false);
       return { started: true, track };
     }
 
     return { started: false, track, position: this.queue.length };
   }
 
-  async playNext() {
+  async playNext(isAutoAdvance = false) {
     this.resetIdleTimer();
 
     if (this.queue.length === 0) {
@@ -114,23 +114,24 @@ class GuildQueue {
       this.currentResource = resource;
       this.player.play(resource);
 
-      this.notifyNowPlaying(this.currentTrack);
+      if (isAutoAdvance) {
+        this.notifyNowPlaying(this.currentTrack);
+      }
     } catch (err) {
       console.error(`[Воспроизведение ${this.guildId}]`, err.message);
       if (this.textChannel) {
         this.textChannel
-          .send(`⚠️ Не удалось воспроизвести **${this.currentTrack.title}**: ${err.message}`)
+          .send(`Не удалось воспроизвести **${this.currentTrack.title}**: ${err.message}`)
           .catch(() => {});
       }
-      this.playNext();
+      this.playNext(true);
     }
   }
 
   notifyNowPlaying(track) {
     if (!this.textChannel) return;
-    const icon = track.source === 'soundcloud' ? '🟠 SoundCloud' : '🔴 YouTube';
-    const msg = `🎶 **Сейчас играет в войсе:** [${track.title}](${track.url})\n⏱ Длительность: \`${track.durationFormatted}\` · Источник: **${icon}** · Заказал: <@${track.requestedBy}>`;
-    this.textChannel.send(msg).catch(() => {});
+    const msg = `Сейчас играет: [${track.title}](<${track.url}>) (${track.durationFormatted})`;
+    this.textChannel.send({ content: msg, flags: [MessageFlags.SuppressEmbeds] }).catch(() => {});
   }
 
   skip() {

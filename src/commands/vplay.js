@@ -1,12 +1,11 @@
 'use strict';
 
 const {
-  SlashCommandBuilder,
-  ContainerBuilder,
-  TextDisplayBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ContainerBuilder,
+  TextDisplayBuilder,
   MessageFlags,
 } = require('discord.js');
 const { resolveTrack } = require('../music/provider');
@@ -17,19 +16,19 @@ function createMusicControls(queue) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('vplay_pause')
-      .setLabel(isPaused ? '▶️ Продолжить' : '⏸️ Пауза')
+      .setLabel(isPaused ? 'Продолжить' : 'Пауза')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('vplay_skip')
-      .setLabel('⏭️ Скип')
-      .setStyle(ButtonStyle.Primary),
+      .setLabel('Скип')
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('vplay_queue')
-      .setLabel('📜 Очередь')
+      .setLabel('Очередь')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('vplay_stop')
-      .setLabel('⏹️ Стоп')
+      .setLabel('Стоп')
       .setStyle(ButtonStyle.Danger),
   );
 }
@@ -48,9 +47,9 @@ async function handleVPlay(interaction) {
 
   if (!voiceChannel) {
     const errorBox = buildMusicContainer(
-      '🔇 Ты не в голосовом канале',
-      'Зайди в любой голосовой канал сервера, чтобы включить музыку!',
-      0xfca5a5,
+      'Голосовой канал не найден',
+      'Зайди в любой голосовой канал сервера.',
+      0xef4444,
     );
     await interaction.editReply({
       components: [errorBox],
@@ -62,9 +61,9 @@ async function handleVPlay(interaction) {
   const query = interaction.options.getString('запрос');
   if (!query) {
     const errorBox = buildMusicContainer(
-      '❓ Укажи трек',
-      'Введи название песни или ссылку на YouTube / SoundCloud!',
-      0xfca5a5,
+      'Укажи трек',
+      'Введи название песни или ссылку.',
+      0xef4444,
     );
     await interaction.editReply({
       components: [errorBox],
@@ -86,19 +85,11 @@ async function handleVPlay(interaction) {
     const result = await queue.enqueue(track);
     const controls = createMusicControls(queue);
 
-    const sourceLabel = track.source === 'soundcloud' ? '🟠 SoundCloud' : '🔴 YouTube';
-    const accentColor = track.source === 'soundcloud' ? 0xff7700 : 0xff0000;
-
     if (result.started) {
       const container = buildMusicContainer(
-        '🎶 Включаем в войсе',
-        `**[${track.title}](${track.url})**\n\n` +
-          `👤 Автор: **${track.author}**\n` +
-          `⏱ Длительность: \`${track.durationFormatted}\`\n` +
-          `📡 Источник: **${sourceLabel}**\n` +
-          `🔊 Канал: <#${voiceChannel.id}>\n` +
-          `🙋 Заказал: <@${interaction.user.id}>`,
-        accentColor,
+        'Сейчас играет',
+        `[${track.title}](<${track.url}>)\n${track.author} · \`${track.durationFormatted}\``,
+        0x5865f2,
       );
 
       await interaction.editReply({
@@ -107,14 +98,9 @@ async function handleVPlay(interaction) {
       });
     } else {
       const container = buildMusicContainer(
-        '⏳ Добавлено в очередь',
-        `**[${track.title}](${track.url})**\n\n` +
-          `👤 Автор: **${track.author}**\n` +
-          `⏱ Длительность: \`${track.durationFormatted}\`\n` +
-          `🔢 Позиция в очереди: **#${result.position}**\n` +
-          `📡 Источник: **${sourceLabel}**\n` +
-          `🙋 Заказал: <@${interaction.user.id}>`,
-        0x10b981,
+        `В очереди (#${result.position})`,
+        `[${track.title}](<${track.url}>)\n${track.author} · \`${track.durationFormatted}\``,
+        0x5865f2,
       );
 
       await interaction.editReply({
@@ -125,7 +111,7 @@ async function handleVPlay(interaction) {
   } catch (err) {
     console.error('[vplay]', err);
     const errorBox = buildMusicContainer(
-      '⚠️ Ошибка поиска трека',
+      'Ошибка',
       `Не удалось загрузить трек: ${err.message}`,
       0xef4444,
     );
@@ -139,56 +125,56 @@ async function handleVPlay(interaction) {
 async function handleVSkip(interaction) {
   const queue = musicManager.get(interaction.guildId);
   if (!queue || !queue.isPlaying) {
-    const box = buildMusicContainer('ℹ️ Сейчас ничего не играет', 'Включи музыку через `/vplay`!', 0x94a3b8);
+    const box = buildMusicContainer('Ничего не играет', 'Включи трек командой /vplay', 0x94a3b8);
     await interaction.editReply({ components: [box], flags: MessageFlags.IsComponentsV2 });
     return;
   }
 
   const skipped = queue.currentTrack;
   queue.skip();
-  const box = buildMusicContainer('⏭️ Трек пропущен', `Пропущен: **${skipped ? skipped.title : 'Текущий трек'}**`, 0x10b981);
+  const box = buildMusicContainer('Трек пропущен', skipped ? skipped.title : 'Текущий трек', 0x5865f2);
   await interaction.editReply({ components: [box], flags: MessageFlags.IsComponentsV2 });
 }
 
 async function handleVStop(interaction) {
   const queue = musicManager.get(interaction.guildId);
   if (!queue) {
-    const box = buildMusicContainer('ℹ️ Плеер не активен', 'Бот сейчас не в голосовом канале.', 0x94a3b8);
+    const box = buildMusicContainer('Плеер не активен', 'Бот не подключен к голосовому каналу.', 0x94a3b8);
     await interaction.editReply({ components: [box], flags: MessageFlags.IsComponentsV2 });
     return;
   }
 
   queue.stop();
-  const box = buildMusicContainer('⏹️ Музыка остановлена', 'Бот отключился от голосового канала, очередь очищена.', 0xef4444);
+  const box = buildMusicContainer('Остановлено', 'Очередь очищена, бот отключился от канала.', 0xef4444);
   await interaction.editReply({ components: [box], flags: MessageFlags.IsComponentsV2 });
 }
 
 async function handleVQueue(interaction) {
   const queue = musicManager.get(interaction.guildId);
   if (!queue || (!queue.currentTrack && queue.queue.length === 0)) {
-    const box = buildMusicContainer('📜 Очередь пуста', 'Включи трек командой `/vplay <название или ссылка>`!', 0x94a3b8);
+    const box = buildMusicContainer('Очередь пуста', 'Включи трек командой /vplay', 0x94a3b8);
     await interaction.editReply({ components: [box], flags: MessageFlags.IsComponentsV2 });
     return;
   }
 
   let text = '';
   if (queue.currentTrack) {
-    text += `▶️ **Сейчас играет:**\n[${queue.currentTrack.title}](${queue.currentTrack.url}) (\`${queue.currentTrack.durationFormatted}\`) — <@${queue.currentTrack.requestedBy}>\n\n`;
+    text += `Сейчас играет:\n[${queue.currentTrack.title}](<${queue.currentTrack.url}>) (\`${queue.currentTrack.durationFormatted}\`)\n\n`;
   }
 
   if (queue.queue.length > 0) {
-    text += `📜 **Следующие треки (${queue.queue.length}):**\n`;
+    text += `В очереди (${queue.queue.length}):\n`;
     queue.queue.slice(0, 10).forEach((t, i) => {
-      text += `${i + 1}. [${t.title}](${t.url}) (\`${t.durationFormatted}\`) — <@${t.requestedBy}>\n`;
+      text += `${i + 1}. [${t.title}](<${t.url}>) (\`${t.durationFormatted}\`)\n`;
     });
     if (queue.queue.length > 10) {
-      text += `*... и ещё ${queue.queue.length - 10} треков в очереди*`;
+      text += `... и ещё ${queue.queue.length - 10} треков`;
     }
   } else {
-    text += '*В очереди больше нет треков.*';
+    text += 'В очереди больше нет треков.';
   }
 
-  const box = buildMusicContainer('🎶 Очередь воспроизведения', text, 0x5865f2);
+  const box = buildMusicContainer('Очередь', text, 0x5865f2);
   const controls = createMusicControls(queue);
   await interaction.editReply({ components: [box, controls], flags: MessageFlags.IsComponentsV2 });
 }
@@ -201,7 +187,7 @@ async function handleMusicButtons(interaction) {
   const queue = musicManager.get(interaction.guildId);
   if (!queue) {
     await interaction.reply({
-      content: '❌ Музыкальный плеер сейчас не играет.',
+      content: 'Плеер сейчас не активен.',
       flags: [MessageFlags.Ephemeral],
     });
     return;
@@ -210,27 +196,27 @@ async function handleMusicButtons(interaction) {
   if (customId === 'vplay_pause') {
     if (queue.isPaused) {
       queue.resume();
-      await interaction.reply({ content: '▶️ Воспроизведение продолжено!', flags: [MessageFlags.Ephemeral] });
+      await interaction.reply({ content: 'Воспроизведение продолжено.', flags: [MessageFlags.Ephemeral] });
     } else {
       queue.pause();
-      await interaction.reply({ content: '⏸️ Воспроизведение поставлено на паузу!', flags: [MessageFlags.Ephemeral] });
+      await interaction.reply({ content: 'Воспроизведение приостановлено.', flags: [MessageFlags.Ephemeral] });
     }
   } else if (customId === 'vplay_skip') {
     const skipped = queue.currentTrack?.title || 'трек';
     queue.skip();
-    await interaction.reply({ content: `⏭️ Пропущен: **${skipped}**!`, flags: [MessageFlags.Ephemeral] });
+    await interaction.reply({ content: `Пропущено: ${skipped}`, flags: [MessageFlags.Ephemeral] });
   } else if (customId === 'vplay_stop') {
     queue.stop();
-    await interaction.reply({ content: '⏹️ Музыка остановлена, бот вышел из войса.', flags: [MessageFlags.Ephemeral] });
+    await interaction.reply({ content: 'Воспроизведение остановлено.', flags: [MessageFlags.Ephemeral] });
   } else if (customId === 'vplay_queue') {
     let text = queue.currentTrack
-      ? `▶️ **Сейчас:** [${queue.currentTrack.title}](${queue.currentTrack.url})\n`
+      ? `Сейчас играет: [${queue.currentTrack.title}](<${queue.currentTrack.url}>)\n`
       : '';
     if (queue.queue.length > 0) {
-      text += `\n📜 **В очереди (${queue.queue.length}):**\n` +
+      text += `\nВ очереди (${queue.queue.length}):\n` +
         queue.queue.slice(0, 5).map((t, i) => `${i + 1}. ${t.title}`).join('\n');
     } else {
-      text += '\n*Очередь пуста.*';
+      text += '\nОчередь пуста.';
     }
     await interaction.reply({ content: text, flags: [MessageFlags.Ephemeral] });
   }
