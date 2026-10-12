@@ -130,12 +130,15 @@ function buildHelpContainer() {
 
   const text = [
     '### 🤖 Команды бота',
+    '• **/vplay** <запрос> — музыка в войсе (YouTube / SoundCloud)',
+    '• **/vskip** / **/vstop** / **/vqueue** — управление музыкой',
+    '• **/tiktok** <ссылка> — скачать видео из TikTok без водянки',
     '• **/профиль** [@участник] — карточка профиля и статистика',
     '• **/судимость** [@участник] — проверить судимость',
     '• **/рейтинг** — топ по статьям',
     '• **/войс** [@участник] — время в голосовых каналах',
     '• **/войстоп** — топ любителей поболтать',
-    '• **/2048** — сыграть в 2048',
+    '• **/2048** / **/змейка** — мини-игры прямо в Discord',
     '• **/погода** [город] — погода за окном',
     '• **/рандом** — состав на Доту 2',
   ].join('\n');
@@ -143,7 +146,7 @@ function buildHelpContainer() {
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(text));
   container.addSeparatorComponents(new SeparatorBuilder().setDivider(true));
   container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('💬 Триггеры: **рпп**, **победа**, **3 слова победы**, **аллах**'),
+    new TextDisplayBuilder().setContent('💬 Триггеры: **рпп**, **победа**, **аллах** · 🎬 Ссылки TikTok в чате скачиваются автоматически!'),
   );
 
   return container;

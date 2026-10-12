@@ -6,13 +6,24 @@
   "scripts": {
     "start": "node index.js",
     "invite": "node scripts/invite.js",
-    "test": "node scripts/test.js && node scripts/test-commands.js && node scripts/test-trigger.js && node scripts/test-presence.js && node scripts/test-2048.js && node scripts/test-random.js && node scripts/test-voice.js",
+    "test": "node scripts/test.js && node scripts/test-commands.js && node scripts/test-trigger.js && node scripts/test-presence.js && node scripts/test-2048.js && node scripts/test-random.js && node scripts/test-voice.js && node scripts/test-media.js",
     "weather": "node scripts/test-weather-live.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "discord.js": "^14.16.3"
+    "@discordjs/voice": "^0.19.2",
+    "@distube/ytdl-core": "^4.16.12",
+    "@tobyg74/tiktok-api-dl": "^1.3.7",
+    "discord.js": "^14.16.3",
+    "ffmpeg-static": "^5.3.0",
+    "libsodium-wrappers": "^0.8.4",
+    "opusscript": "^0.0.8",
+    "play-dl": "^1.9.7",
+    "soundcloud-downloader": "^1.0.0",
+    "soundcloud-scraper": "^5.0.3",
+    "youtube-sr": "^4.3.12",
+    "youtubei.js": "^18.1.0"
   }
 }

@@ -13,6 +13,8 @@ const { registerGame } = require('./game');
 const { handleRANDOM } = require('./random');
 const { registerVoice } = require('./voice');
 const { registerProfile } = require('./profile');
+const { registerVPlay } = require('./vplay');
+const { registerTikTok } = require('./tiktok');
 const { VoiceTracker } = require('../voice');
 
 function register(client, storage, tracker) {
@@ -71,6 +73,32 @@ function register(client, storage, tracker) {
     .setName('войстоп')
     .setDescription('Топ участников по времени в голосовых каналах');
 
+  const cmdVPlay = new SlashCommandBuilder()
+    .setName('vplay')
+    .setDescription('Включить музыку в голосовом канале (YouTube / SoundCloud)')
+    .addStringOption((opt) =>
+      opt.setName('запрос').setDescription('Название песни или ссылка на YouTube / SoundCloud').setRequired(true),
+    );
+
+  const cmdVSkip = new SlashCommandBuilder()
+    .setName('vskip')
+    .setDescription('Пропустить текущий трек в голосовом канале');
+
+  const cmdVStop = new SlashCommandBuilder()
+    .setName('vstop')
+    .setDescription('Остановить музыку и выйти из голосового канала');
+
+  const cmdVQueue = new SlashCommandBuilder()
+    .setName('vqueue')
+    .setDescription('Показать текущую очередь воспроизведения музыки');
+
+  const cmdTikTok = new SlashCommandBuilder()
+    .setName('tiktok')
+    .setDescription('Скачать видео из TikTok без водяного знака')
+    .addStringOption((opt) =>
+      opt.setName('ссылка').setDescription('Ссылка на видео TikTok').setRequired(true),
+    );
+
   client.slashCommands = [
     cmdSud,
     cmdTop,
@@ -82,6 +110,11 @@ function register(client, storage, tracker) {
     cmdRandom,
     cmdVoice,
     cmdVoiceTop,
+    cmdVPlay,
+    cmdVSkip,
+    cmdVStop,
+    cmdVQueue,
+    cmdTikTok,
   ];
 
   const voiceTracker = tracker || client.voiceTracker || new VoiceTracker(storage);
@@ -91,6 +124,8 @@ function register(client, storage, tracker) {
   registerGame(client, storage);
   registerVoice(client, voiceTracker);
   registerProfile(client, storage, voiceTracker);
+  registerVPlay(client);
+  registerTikTok(client);
 
   // id прошлого ответа бота для «судимости» — чтобы удалять его при новой попытке.
   const lastSudMessage = new Map();
@@ -168,7 +203,22 @@ function register(client, storage, tracker) {
     });
   }
 
-  const needsDefer = new Set(['судимость', 'рейтинг', 'профиль', 'погода', '2048', 'змейка', 'рандом', 'войс', 'войстоп']);
+  const needsDefer = new Set([
+    'судимость',
+    'рейтинг',
+    'профиль',
+    'погода',
+    '2048',
+    'змейка',
+    'рандом',
+    'войс',
+    'войстоп',
+    'vplay',
+    'vskip',
+    'vstop',
+    'vqueue',
+    'tiktok',
+  ]);
 
   const handlers = new Map([
     ['судимость', handleSud],
@@ -181,6 +231,11 @@ function register(client, storage, tracker) {
     ['рандом', (i) => handleRANDOM(i)],
     ['войс', (i) => client.handleVoice(i)],
     ['войстоп', (i) => client.handleVoiceTop(i)],
+    ['vplay', (i) => client.handleVPlay(i)],
+    ['vskip', (i) => client.handleVSkip(i)],
+    ['vstop', (i) => client.handleVStop(i)],
+    ['vqueue', (i) => client.handleVQueue(i)],
+    ['tiktok', (i) => client.handleTikTok(i)],
   ]);
 
   client.on('interactionCreate', async (interaction) => {
