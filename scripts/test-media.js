@@ -50,6 +50,13 @@ async function run() {
     }
   }
 
+  console.log('\nПроверка ссылок SoundCloud:');
+  const { isSoundCloudUrl } = require('../src/music/provider');
+  check('распознает on.soundcloud.com', isSoundCloudUrl('https://on.soundcloud.com/ZjeMPwdvkQ6IMyzy8F'));
+  check('распознает soundcloud с query-параметрами', isSoundCloudUrl('https://soundcloud.com/mitsune1024/hitdow-cover?si=9f9d7bd147b043b3905671ce520f9e41&utm_source=clipboard'));
+  check('распознает m.soundcloud.com', isSoundCloudUrl('https://m.soundcloud.com/artist/track'));
+  check('не путает обычный запрос с ссылкой', !isSoundCloudUrl('shadowraze astral'));
+
   console.log('\nМузыкальная очередь (MusicManager):');
   const mm = new MusicManager();
   const queue = mm.getOrCreate({
@@ -64,10 +71,10 @@ async function run() {
   const mockTrack1 = {
     title: 'Test Song 1',
     author: 'Artist 1',
-    url: 'https://youtube.com/watch?v=111',
+    url: 'https://soundcloud.com/artist/song1',
     duration: 180,
     durationFormatted: '3:00',
-    source: 'youtube',
+    source: 'soundcloud',
     requestedBy: 'user1',
   };
   const mockTrack2 = {

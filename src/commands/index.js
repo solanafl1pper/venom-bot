@@ -75,9 +75,9 @@ function register(client, storage, tracker) {
 
   const cmdVPlay = new SlashCommandBuilder()
     .setName('vplay')
-    .setDescription('Включить музыку в голосовом канале (YouTube / SoundCloud)')
+    .setDescription('Включить музыку в голосовом канале (SoundCloud)')
     .addStringOption((opt) =>
-      opt.setName('запрос').setDescription('Название песни или ссылка на YouTube / SoundCloud').setRequired(true),
+      opt.setName('запрос').setDescription('Название песни или ссылка на SoundCloud').setRequired(true),
     );
 
   const cmdVSkip = new SlashCommandBuilder()
