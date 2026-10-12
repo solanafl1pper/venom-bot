@@ -1,14 +1,10 @@
 'use strict';
 
 const {
-  SlashCommandBuilder,
-  ContainerBuilder,
-  TextDisplayBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   AttachmentBuilder,
-  MessageFlags,
 } = require('discord.js');
 const { extractTikTokUrl, downloadTikTok } = require('../tiktok/downloader');
 
@@ -23,20 +19,13 @@ function formatDuration(seconds) {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
-function buildTikTokContainer(data, userMention) {
+function buildCaption(data) {
   const durStr = data.duration ? ` · ⏱️ \`${formatDuration(data.duration)}\`` : '';
   const sizeMb = (data.buffer.length / (1024 * 1024)).toFixed(1);
-  const desc =
-    `📹 **[${data.title.slice(0, 150)}](${data.downloadUrl})**\n\n` +
-    `👤 Автор: **@${data.author}**${durStr}\n` +
-    `💾 Размер: \`${sizeMb} MB\` · 💧 *Без водяного знака*\n` +
-    (userMention ? `👤 Отправил: ${userMention}` : '');
-
-  return new ContainerBuilder()
-    .setAccentColor(0xfe2c55)
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`### 🎵 TikTok Video\n${desc}`),
-    );
+  return (
+    `🎬 **${data.title.slice(0, 120)}**\n` +
+    `👤 Автор: **@${data.author}**${durStr} · 💾 \`${sizeMb} MB\` · 💧 *Без водяного знака*`
+  );
 }
 
 /**
@@ -47,23 +36,15 @@ async function handleTikTokCommand(interaction) {
   const targetUrl = extractTikTokUrl(inputUrl);
 
   if (!targetUrl) {
-    const errorBox = new ContainerBuilder()
-      .setAccentColor(0xfca5a5)
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          '### ⚠️ Неверная ссылка\nУкажи корректную ссылку на видео TikTok (например, `https://vt.tiktok.com/...` или `https://www.tiktok.com/@user/video/...`)!',
-        ),
-      );
     await interaction.editReply({
-      components: [errorBox],
-      flags: MessageFlags.IsComponentsV2,
+      content:
+        '⚠️ **Неверная ссылка**: укажи корректную ссылку на видео TikTok (например, `https://vt.tiktok.com/...` или `https://www.tiktok.com/@user/video/...`)!',
     });
     return;
   }
 
   try {
     const data = await downloadTikTok(targetUrl);
-    const container = buildTikTokContainer(data, `<@${interaction.user.id}>`);
 
     if (data.tooLarge) {
       const row = new ActionRowBuilder().addComponents(
@@ -73,36 +54,26 @@ async function handleTikTokCommand(interaction) {
           .setURL(data.downloadUrl),
       );
       await interaction.editReply({
-        content: '⚠️ Видео превышает лимит загрузки Discord (25 МБ). Используй кнопку ниже для просмотра и скачивания:',
-        components: [container, row],
-        flags: MessageFlags.IsComponentsV2,
+        content: `⚠️ Видео **${data.title.slice(0, 100)}** превышает лимит загрузки Discord (25 МБ).\nСкачать без водяного знака:`,
+        components: [row],
       });
       return;
     }
 
+    const caption = buildCaption(data);
     const attachment = new AttachmentBuilder(data.buffer, {
       name: `tiktok_${Date.now()}.mp4`,
       description: data.title.slice(0, 100),
     });
 
     await interaction.editReply({
-      content: `🎬 **${data.title.slice(0, 100)}** (автор: @${data.author})`,
-      components: [container],
+      content: caption,
       files: [attachment],
-      flags: MessageFlags.IsComponentsV2,
     });
   } catch (err) {
     console.error('[tiktok] Command error:', err);
-    const errorBox = new ContainerBuilder()
-      .setAccentColor(0xef4444)
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `### ⚠️ Ошибка загрузки\nНе удалось скачать видео: ${err.message || 'попробуй позже'}`,
-        ),
-      );
     await interaction.editReply({
-      components: [errorBox],
-      flags: MessageFlags.IsComponentsV2,
+      content: `⚠️ Не удалось скачать видео: ${err.message || 'попробуй позже'}`,
     });
   }
 }
@@ -135,7 +106,6 @@ async function handleChatMessage(message) {
     }
 
     const data = await downloadTikTok(url);
-    const container = buildTikTokContainer(data, `<@${message.author.id}>`);
 
     if (data.tooLarge) {
       const row = new ActionRowBuilder().addComponents(
@@ -145,28 +115,26 @@ async function handleChatMessage(message) {
           .setURL(data.downloadUrl),
       );
       await message.reply({
-        content: '⚠️ Видео превышает лимит загрузки Discord (25 МБ). Ссылка без водяного знака:',
-        components: [container, row],
-        flags: MessageFlags.IsComponentsV2,
+        content: `⚠️ Видео **${data.title.slice(0, 100)}** превышает лимит загрузки Discord (25 МБ).\nСкачать без водяного знака:`,
+        components: [row],
         allowedMentions: { repliedUser: false },
       });
       return;
     }
 
+    const caption = buildCaption(data);
     const attachment = new AttachmentBuilder(data.buffer, {
       name: `tiktok_${Date.now()}.mp4`,
       description: data.title.slice(0, 100),
     });
 
     await message.reply({
-      content: `🎬 **${data.title.slice(0, 100)}** (автор: @${data.author})`,
-      components: [container],
+      content: caption,
       files: [attachment],
-      flags: MessageFlags.IsComponentsV2,
       allowedMentions: { repliedUser: false },
     });
 
-    // Пытаемся скрыть стандартный ембед дискорда у оригинального сообщения
+    // Скрываем стандартный embed превью Discord для исходной ссылки
     if (message.suppressEmbeds && typeof message.suppressEmbeds === 'function') {
       message.suppressEmbeds(true).catch(() => {});
     }
@@ -184,5 +152,5 @@ module.exports = {
   registerTikTok,
   handleTikTokCommand,
   handleChatMessage,
-  buildTikTokContainer,
+  buildCaption,
 };

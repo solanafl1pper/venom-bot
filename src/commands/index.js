@@ -245,11 +245,31 @@ function register(client, storage, tracker) {
 
     try {
       if (needsDefer.has(interaction.commandName)) {
-        await interaction.deferReply({ flags: [MessageFlags.IsComponentsV2] });
+        if (interaction.commandName === 'tiktok') {
+          await interaction.deferReply();
+        } else {
+          await interaction.deferReply({ flags: [MessageFlags.IsComponentsV2] });
+        }
       }
       await handler(interaction);
     } catch (err) {
       console.error(`[команда ${interaction.commandName}]`, err.message);
+      if (interaction.commandName === 'tiktok') {
+        try {
+          if (interaction.deferred || interaction.replied) {
+            await interaction.editReply({ content: '### ⚠️ Ошибка\nЧто-то пошло не так, попробуй ещё раз!' });
+          } else {
+            await interaction.reply({
+              content: '### ⚠️ Ошибка\nЧто-то пошло не так, попробуй ещё раз!',
+              flags: [MessageFlags.Ephemeral],
+            });
+          }
+        } catch {
+          /* игнорируем ошибку */
+        }
+        return;
+      }
+
       const fallback = new ContainerBuilder()
         .setAccentColor(0xfca5a5)
         .addTextDisplayComponents(

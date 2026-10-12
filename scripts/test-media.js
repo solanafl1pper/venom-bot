@@ -126,7 +126,7 @@ async function run() {
   };
 
   await client.handleTikTok(mockTikTokInteraction);
-  check('tiktok с неверной ссылкой возвращает предупреждение', tiktokReply !== null && Boolean(tiktokReply.components));
+  check('tiktok с неверной ссылкой возвращает предупреждение', tiktokReply !== null && Boolean(tiktokReply.content));
 
   console.log('\nИТОГ:');
   if (failures > 0) {
