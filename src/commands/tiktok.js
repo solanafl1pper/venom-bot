@@ -60,14 +60,12 @@ async function handleTikTokCommand(interaction) {
       return;
     }
 
-    const caption = buildCaption(data);
     const attachment = new AttachmentBuilder(data.buffer, {
       name: `tiktok_${Date.now()}.mp4`,
       description: data.title.slice(0, 100),
     });
 
     await interaction.editReply({
-      content: caption,
       files: [attachment],
     });
   } catch (err) {
@@ -122,14 +120,12 @@ async function handleChatMessage(message) {
       return;
     }
 
-    const caption = buildCaption(data);
     const attachment = new AttachmentBuilder(data.buffer, {
       name: `tiktok_${Date.now()}.mp4`,
       description: data.title.slice(0, 100),
     });
 
     await message.reply({
-      content: caption,
       files: [attachment],
       allowedMentions: { repliedUser: false },
     });
