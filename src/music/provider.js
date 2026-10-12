@@ -1,12 +1,39 @@
-'use strict';
-
+const fs = require('node:fs');
+const path = require('node:path');
 const cp = require('node:child_process');
 const { Readable } = require('node:stream');
 const https = require('node:https');
 const { createAudioResource, StreamType } = require('@discordjs/voice');
 const YouTube = require('youtube-sr').default;
 const { Innertube, ClientType } = require('youtubei.js');
-const ffmpegPath = require('ffmpeg-static');
+
+let cachedFfmpeg = null;
+function getFfmpegBinary() {
+  if (cachedFfmpeg) return cachedFfmpeg;
+  const staticPath = require('ffmpeg-static');
+  if (staticPath && fs.existsSync(staticPath)) {
+    cachedFfmpeg = staticPath;
+    return cachedFfmpeg;
+  }
+
+  try {
+    const pkgDir = path.dirname(require.resolve('ffmpeg-static'));
+    const installScript = path.join(pkgDir, 'install.js');
+    if (fs.existsSync(installScript)) {
+      console.log('[ffmpeg] Installing ffmpeg binary...');
+      cp.spawnSync(process.execPath, [installScript], { stdio: 'inherit' });
+      if (staticPath && fs.existsSync(staticPath)) {
+        cachedFfmpeg = staticPath;
+        return cachedFfmpeg;
+      }
+    }
+  } catch (err) {
+    console.warn('[ffmpeg] install script fallback error:', err.message);
+  }
+
+  cachedFfmpeg = 'ffmpeg';
+  return cachedFfmpeg;
+}
 
 let innertubeClient = null;
 let soundcloudClientId = null;
@@ -182,8 +209,10 @@ async function resolveTrack(query) {
 }
 
 async function createTrackAudioResource(track) {
+  const ffmpeg = getFfmpegBinary();
+
   if (track.source === 'soundcloud') {
-    const ffmpegProc = cp.spawn(ffmpegPath, [
+    const ffmpegProc = cp.spawn(ffmpeg, [
       '-reconnect',
       '1',
       '-reconnect_streamed',
@@ -217,7 +246,7 @@ async function createTrackAudioResource(track) {
     const webStream = await yt.download(track.id, { type: 'audio' });
     const nodeStream = Readable.fromWeb(webStream);
 
-    const ffmpegProc = cp.spawn(ffmpegPath, [
+    const ffmpegProc = cp.spawn(ffmpeg, [
       '-i',
       'pipe:0',
       '-f',
@@ -249,4 +278,5 @@ module.exports = {
   createTrackAudioResource,
   isSoundCloudUrl,
   isYouTubeUrl,
+  getFfmpegBinary,
 };

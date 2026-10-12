@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const ffmpegPath = require('ffmpeg-static');
+const { getFfmpegBinary } = require('../music/provider');
 const tiktokDl = require('@tobyg74/tiktok-api-dl');
 
 const TIKTOK_URL_REGEX =
@@ -63,7 +63,8 @@ async function fetchVideoBuffer(downloadUrl) {
  * Сжимает видео с помощью ffmpeg, если его размер превышает лимит Discord (~24.5MB).
  */
 async function compressVideo(inputBuffer) {
-  if (!ffmpegPath) return inputBuffer;
+  const ffmpeg = getFfmpegBinary();
+  if (!ffmpeg) return inputBuffer;
   if (inputBuffer.length <= DISCORD_MAX_BYTES) return inputBuffer;
 
   const tempIn = path.join(os.tmpdir(), `tt_in_${Date.now()}_${Math.random().toString(36).slice(2)}.mp4`);
@@ -74,7 +75,7 @@ async function compressVideo(inputBuffer) {
 
     await new Promise((resolve, reject) => {
       const proc = spawn(
-        ffmpegPath,
+        ffmpeg,
         [
           '-y',
           '-i', tempIn,
