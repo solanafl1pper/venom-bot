@@ -73,14 +73,53 @@ async function handleVPlay(interaction) {
   }
 
   try {
-    const track = await resolveTrack(query);
-    track.requestedBy = interaction.user.id;
+    const resolved = await resolveTrack(query);
 
     const queue = musicManager.getOrCreate({
       guildId: interaction.guildId,
       textChannel: interaction.channel,
       voiceChannel,
     });
+
+    if (resolved.type === 'playlist') {
+      for (const t of resolved.tracks) {
+        t.requestedBy = interaction.user.id;
+      }
+
+      const result = await queue.enqueueMultiple(resolved.tracks);
+      const controls = createMusicControls(queue);
+      const playlistLink = resolved.url ? `[${resolved.title}](<${resolved.url}>)` : `**${resolved.title}**`;
+
+      if (result.started) {
+        const first = result.firstTrack || resolved.tracks[0];
+        const currentLink = first ? `[${first.title}](<${first.url}>) · \`${first.durationFormatted}\`` : '';
+        const container = buildMusicContainer(
+          'Запущен плейлист',
+          `${playlistLink} (${resolved.tracksCount} треков)\nСейчас играет: ${currentLink}`,
+          0x5865f2,
+        );
+
+        await interaction.editReply({
+          components: [container, controls],
+          flags: MessageFlags.IsComponentsV2,
+        });
+      } else {
+        const container = buildMusicContainer(
+          'Плейлист добавлен в очередь',
+          `${playlistLink}\nДобавлено треков: ${resolved.tracksCount} (начиная с #${result.position}) · ${resolved.author}`,
+          0x5865f2,
+        );
+
+        await interaction.editReply({
+          components: [container, controls],
+          flags: MessageFlags.IsComponentsV2,
+        });
+      }
+      return;
+    }
+
+    const track = resolved;
+    track.requestedBy = interaction.user.id;
 
     const result = await queue.enqueue(track);
     const controls = createMusicControls(queue);

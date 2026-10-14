@@ -94,8 +94,17 @@ async function run() {
   check('первый трек верный', queue.queue[0].title === 'Test Song 1');
   check('второй трек верный', queue.queue[1].title === 'Test Song 2');
 
+  const batchTracks = [
+    { title: 'Playlist Song A', author: 'Artist A', url: 'https://soundcloud.com/artist/songA', durationFormatted: '2:15' },
+    { title: 'Playlist Song B', author: 'Artist B', url: 'https://soundcloud.com/artist/songB', durationFormatted: '3:45' },
+  ];
+  queue.isPlaying = true;
+  const enqRes = await queue.enqueueMultiple(batchTracks);
+  check('enqueueMultiple добавляет пачку треков в очередь', queue.queue.length === 4);
+  check('enqueueMultiple возвращает позицию для очереди', enqRes.started === false && enqRes.position === 3 && enqRes.count === 2);
+
   queue.skip();
-  check('скип вызывает переход к следующему или остановку', queue.queue.length <= 2);
+  check('скип вызывает переход к следующему или остановку', queue.queue.length <= 4);
 
   queue.stop();
   check('стоп очищает очередь', queue.queue.length === 0);

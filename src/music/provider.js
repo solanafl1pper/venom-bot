@@ -78,6 +78,48 @@ function cleanSoundCloudUrl(url) {
 }
 
 /**
+ * Разрешение плейлиста SoundCloud по прямой ссылке.
+ */
+async function resolvePlaylist(url) {
+  const setInfo = await scdl.getSetInfo(url);
+  if (!setInfo || !setInfo.tracks || setInfo.tracks.length === 0) {
+    throw new Error('Плейлист пуст или недоступен.');
+  }
+
+  const tracks = setInfo.tracks
+    .filter((t) => t.permalink_url)
+    .map((t) => {
+      const durationSec = Math.round((t.duration || 0) / 1000);
+      const m = Math.floor(durationSec / 60);
+      const s = durationSec % 60;
+      return {
+        type: 'track',
+        source: 'soundcloud',
+        title: t.title || 'SoundCloud Track',
+        author: t.user?.username || setInfo.user?.username || 'SoundCloud',
+        url: t.permalink_url,
+        durationFormatted: `${m}:${s < 10 ? '0' : ''}${s}`,
+        durationSeconds: durationSec,
+        thumbnail: t.artwork_url || setInfo.artwork_url || null,
+      };
+    });
+
+  if (tracks.length === 0) {
+    throw new Error('В плейлисте нет доступных треков.');
+  }
+
+  return {
+    type: 'playlist',
+    source: 'soundcloud',
+    title: setInfo.title || 'SoundCloud Playlist',
+    author: setInfo.user?.username || 'SoundCloud',
+    url,
+    tracksCount: tracks.length,
+    tracks,
+  };
+}
+
+/**
  * Поиск трека на SoundCloud по названию.
  */
 async function searchSoundCloudTrack(query) {
@@ -103,6 +145,7 @@ async function searchSoundCloudTrack(query) {
   const durationFormatted = `${m}:${s < 10 ? '0' : ''}${s}`;
 
   return {
+    type: 'track',
     source: 'soundcloud',
     title: best.title || cleanQuery,
     author: best.user?.username || best.user?.name || 'SoundCloud',
@@ -114,15 +157,20 @@ async function searchSoundCloudTrack(query) {
 }
 
 /**
- * Разрешение ссылки или поискового запроса SoundCloud.
+ * Разрешение ссылки или поискового запроса SoundCloud (поддерживает треки и плейлисты).
  */
 async function resolveTrack(query) {
   const trimmed = query.trim();
 
-  // Если это ссылка на SoundCloud (полная или короткая)
+  // 1. Если это ссылка на SoundCloud (полная или короткая)
   if (isSoundCloudUrl(trimmed)) {
     const expanded = await expandUrl(trimmed);
     const cleaned = cleanSoundCloudUrl(expanded);
+
+    // Проверяем, является ли ссылка плейлистом / альбомом
+    if (scdl.isPlaylistURL(cleaned) || /\/sets\//i.test(cleaned)) {
+      return await resolvePlaylist(cleaned);
+    }
 
     try {
       const info = await scdl.getInfo(cleaned);
@@ -131,6 +179,7 @@ async function resolveTrack(query) {
         const m = Math.floor(durationSec / 60);
         const s = durationSec % 60;
         return {
+          type: 'track',
           source: 'soundcloud',
           title: info.title || 'SoundCloud Track',
           author: info.user?.username || info.user?.name || 'SoundCloud',
@@ -141,14 +190,33 @@ async function resolveTrack(query) {
         };
       }
     } catch (infoErr) {
-      console.warn('[SoundCloud] getInfo failed, falling back to search:', infoErr.message);
+      console.warn('[SoundCloud] getInfo failed, checking playlist or search:', infoErr.message);
     }
 
-    // Если getInfo не сработал напрямую, ищем по ссылке
+    // Если getInfo не сработал напрямую, проверяем не плейлист ли это
+    try {
+      return await resolvePlaylist(cleaned);
+    } catch {}
+
+    // Иначе ищем по ссылке
     return await searchSoundCloudTrack(cleaned);
   }
 
-  // Во всех остальных случаях — текстовый поиск напрямую на SoundCloud
+  // 2. Если пользователь явно запросил поиск плейлиста (например: "playlist phonk" или "плейлист phonk")
+  const playlistMatch = trimmed.match(/^(?:playlist|плейлист|сет|set)\s*[:\s]\s*(.+)/i);
+  if (playlistMatch) {
+    const searchQuery = playlistMatch[1].trim();
+    const searchRes = await scdl
+      .search({ query: searchQuery, limit: 5, resourceType: 'playlists' })
+      .catch(() => null);
+
+    const firstPl = searchRes?.collection?.[0];
+    if (firstPl?.permalink_url) {
+      return await resolvePlaylist(firstPl.permalink_url);
+    }
+  }
+
+  // 3. Во всех остальных случаях — текстовый поиск трека напрямую на SoundCloud
   return await searchSoundCloudTrack(trimmed);
 }
 
@@ -189,6 +257,7 @@ async function createTrackAudioResource(track) {
 
 module.exports = {
   resolveTrack,
+  resolvePlaylist,
   createTrackAudioResource,
   isSoundCloudUrl,
   getFfmpegBinary,

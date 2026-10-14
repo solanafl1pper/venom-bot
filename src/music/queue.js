@@ -1,5 +1,6 @@
 'use strict';
 
+const { MessageFlags } = require('discord.js');
 const {
   joinVoiceChannel,
   createAudioPlayer,
@@ -92,6 +93,25 @@ class GuildQueue {
     }
 
     return { started: false, track, position: this.queue.length };
+  }
+
+  async enqueueMultiple(tracks) {
+    if (!tracks || tracks.length === 0) return { started: false, count: 0 };
+    this.resetIdleTimer();
+
+    const wasPlaying = this.isPlaying;
+    const initialPosition = this.queue.length + 1;
+
+    for (const track of tracks) {
+      this.queue.push(track);
+    }
+
+    if (!wasPlaying) {
+      await this.playNext(false);
+      return { started: true, count: tracks.length, firstTrack: this.currentTrack };
+    }
+
+    return { started: false, count: tracks.length, position: initialPosition };
   }
 
   async playNext(isAutoAdvance = false) {
