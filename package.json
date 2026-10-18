@@ -1,6 +1,6 @@
 {
   "name": "sud-bot",
-  "version": "1.0.0",
+  "version": "1.4.87",
   "description": "Discord-бот судимости по статьям УК РФ со случайным розыгрышем 1–15 и рекордами",
   "main": "index.js",
   "scripts": {
